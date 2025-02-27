@@ -22,7 +22,9 @@ def itemadd():
     item_picture = st.text_area("Item Picture URL")
 
     if st.button("Add Item"):
-        add_inventory(item_name_en, item_name_ku, class_cat, department_cat, section_cat, family_cat, sub_family_cat, shelf_life, origin_country, manufacturer, brand, barcode, unit_type, packaging, item_picture)
-
-if __name__ == "__main__":
-    itemadd()
+        add_inventory(
+            item_name_en, item_name_ku, class_cat, department_cat, 
+            section_cat, family_cat, sub_family_cat, shelf_life, 
+            origin_country, manufacturer, brand, barcode, unit_type, 
+            packaging, item_picture
+        )
