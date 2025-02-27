@@ -23,7 +23,7 @@ def run_query(sql, params=None):
     return []
 
 def run_command(sql, params=None):
-    """For non-returning commands like UPDATE/DELETE, or INSERT without needing returned rows. Commits changes automatically."""
+    """For non-returning commands like UPDATE/DELETE. Commits changes automatically."""
     conn = get_connection()
     if conn:
         with conn.cursor() as cur:
@@ -42,3 +42,15 @@ def run_command_returning(sql, params=None):
         conn.close()
         return rows
     return []
+
+# ✅ Reintroducing fetch_inventory() function
+def fetch_inventory():
+    """Fetch inventory data and return as a pandas DataFrame."""
+    query = "SELECT * FROM InventoryBatch"
+    rows = run_query(query)
+
+    if rows:
+        columns = ["BatchID", "ItemID", "Quantity", "ExpirationDate", "StorageLocation", "DateReceived", "LastUpdated"]
+        return pd.DataFrame(rows, columns=columns)
+    
+    return pd.DataFrame()  # Return empty DataFrame if no data
