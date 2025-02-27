@@ -45,7 +45,7 @@ def run_command_returning(sql, params=None):
 
 def fetch_inventory():
     """Fetch inventory data and return as a pandas DataFrame."""
-    query = "SELECT * FROM InventoryBatch"
+    query = "SELECT * FROM Inventory"
     rows = run_query(query)
     if rows:
         columns = ["BatchID", "ItemID", "Quantity", "ExpirationDate", "StorageLocation", "DateReceived", "LastUpdated"]
