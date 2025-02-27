@@ -43,14 +43,19 @@ def run_command_returning(sql, params=None):
         return rows
     return []
 
-# ✅ Reintroducing fetch_inventory() function
 def fetch_inventory():
     """Fetch inventory data and return as a pandas DataFrame."""
     query = "SELECT * FROM InventoryBatch"
     rows = run_query(query)
-
     if rows:
         columns = ["BatchID", "ItemID", "Quantity", "ExpirationDate", "StorageLocation", "DateReceived", "LastUpdated"]
         return pd.DataFrame(rows, columns=columns)
-    
     return pd.DataFrame()  # Return empty DataFrame if no data
+
+def add_inventory(item_name_en, item_name_ku, class_cat, department_cat, section_cat, family_cat, sub_family_cat, shelf_life, origin_country, manufacturer, brand, barcode, unit_type, packaging, item_picture):
+    """Add new inventory item to the database."""
+    query = """
+    INSERT INTO Item (ItemNameEnglish, ItemNameKurdish, ClassCat, DepartmentCat, SectionCat, FamilyCat, SubFamilyCat, ShelfLife, OriginCountry, Manufacturer, Brand, Barcode, UnitType, Packaging, ItemPicture, CreatedAt, UpdatedAt)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    """
+    run_command(query, (item_name_en, item_name_ku, class_cat, department_cat, section_cat, family_cat, sub_family_cat, shelf_life, origin_country, manufacturer, brand, barcode, unit_type, packaging, item_picture))
