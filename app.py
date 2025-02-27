@@ -1,8 +1,8 @@
 import streamlit as st
 
-# Import all the pages
-from home import home
-from itemadd import itemadd
+# Import all the pages as modules
+import home
+import itemadd
 
 # Streamlit page configuration
 st.set_page_config(page_title="Inventory Management System", layout="wide")
@@ -17,9 +17,9 @@ def main():
     page = st.sidebar.radio("Go to", ["Home", "Add Item"])
 
     if page == "Home":
-        home()
+        home.home()  # Call the function inside home.py
     elif page == "Add Item":
-        itemadd()
+        itemadd.itemadd()  # Call the function inside itemadd.py
 
 if __name__ == "__main__":
     main()
