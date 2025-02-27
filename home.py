@@ -24,7 +24,3 @@ def home():
             st.success("No items are near expiry in the next 30 days.")
     else:
         st.info("No inventory data available.")
-
-# Ensure Streamlit runs it if the file is executed directly (not needed but good practice)
-if __name__ == "__main__":
-    home()
