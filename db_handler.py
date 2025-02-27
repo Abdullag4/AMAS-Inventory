@@ -1,43 +1,68 @@
 import streamlit as st
 import psycopg2
+import pandas as pd
 
-def get_connection():
-    """Establish connection using DSN stored in Streamlit secrets."""
-    try:
-        conn = psycopg2.connect(st.secrets["neon"]["dsn"])
-        return conn
-    except Exception as e:
-        st.error(f"Database connection failed: {e}")
-        return None
+class DatabaseManager:
+    """Handles all database interactions in a structured and modular way."""
 
-def run_query(sql, params=None):
-    """Execute SELECT queries and return fetched rows."""
-    conn = get_connection()
-    if conn:
-        with conn.cursor() as cur:
-            cur.execute(sql, params or ())
-            rows = cur.fetchall()
-        conn.close()
-        return rows
-    return []
+    def __init__(self):
+        """Initialize database connection."""
+        self.dsn = st.secrets["neon"]["dsn"]
 
-def run_command(sql, params=None):
-    """Execute INSERT, UPDATE, DELETE queries without returning data."""
-    conn = get_connection()
-    if conn:
-        with conn.cursor() as cur:
-            cur.execute(sql, params or ())
-            conn.commit()
-        conn.close()
+    def get_connection(self):
+        """Create a new database connection."""
+        try:
+            return psycopg2.connect(self.dsn)
+        except Exception as e:
+            st.error(f"Database connection failed: {e}")
+            return None
 
-def run_command_returning(sql, params=None):
-    """Execute commands like INSERT ... RETURNING and return rows."""
-    conn = get_connection()
-    if conn:
-        with conn.cursor() as cur:
-            cur.execute(sql, params or ())
-            rows = cur.fetchall()
-            conn.commit()
-        conn.close()
-        return rows
-    return []
+    def fetch_data(self, query, params=None):
+        """Execute a SELECT query and return results as a Pandas DataFrame."""
+        conn = self.get_connection()
+        if conn:
+            with conn.cursor() as cur:
+                cur.execute(query, params or ())
+                rows = cur.fetchall()
+                columns = [desc[0] for desc in cur.description]
+            conn.close()
+            return pd.DataFrame(rows, columns=columns) if rows else pd.DataFrame()
+        return pd.DataFrame()
+
+    def execute_command(self, query, params=None):
+        """Execute INSERT, UPDATE, DELETE queries (No Return)."""
+        conn = self.get_connection()
+        if conn:
+            with conn.cursor() as cur:
+                cur.execute(query, params or ())
+                conn.commit()
+            conn.close()
+
+    def execute_command_returning(self, query, params=None):
+        """Execute an INSERT or UPDATE query and return affected rows."""
+        conn = self.get_connection()
+        if conn:
+            with conn.cursor() as cur:
+                cur.execute(query, params or ())
+                rows = cur.fetchall()
+                conn.commit()
+            conn.close()
+            return rows
+        return []
+
+    # ✅ Modular Methods for Specific Tasks
+
+    def get_inventory(self):
+        """Retrieve all inventory records."""
+        query = "SELECT * FROM Inventory"
+        return self.fetch_data(query)
+
+    def add_item(self, item_data):
+        """Insert a new item into the Item table."""
+        query = """
+        INSERT INTO Item (ItemNameEnglish, ItemNameKurdish, ClassCat, DepartmentCat, SectionCat, 
+                          FamilyCat, SubFamilyCat, ShelfLife, OriginCountry, Manufacturer, Brand, 
+                          Barcode, UnitType, Packaging, ItemPicture, CreatedAt, UpdatedAt)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        """
+        self.execute_command(query, item_data)
