@@ -1,60 +1,28 @@
 import streamlit as st
-import psycopg2
-import pandas as pd
+from neon_handler import add_inventory
 
-def get_connection():
-    """Establish connection using DSN stored in Streamlit secrets."""
-    try:
-        dsn = st.secrets["dsn"]
-        return psycopg2.connect(dsn)
-    except Exception as e:
-        st.error(f"Database connection failed: {e}")
-        return None
+def itemadd():
+    """Page for adding new items to the inventory."""
+    st.title("➕ Add New Item")
 
-def fetch_inventory():
-    """Retrieve inventory batches from the database."""
-    conn = get_connection()
-    if conn:
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT * FROM InventoryBatch")
-            df = pd.DataFrame(cursor.fetchall(), columns=[desc[0] for desc in cursor.description])
-        conn.close()
-        return df
-    return pd.DataFrame()
+    item_name_en = st.text_input("Item Name (English)")
+    item_name_ku = st.text_input("Item Name (Kurdish)")
+    class_cat = st.text_input("Class Category")
+    department_cat = st.text_input("Department Category")
+    section_cat = st.text_input("Section Category")
+    family_cat = st.text_input("Family Category")
+    sub_family_cat = st.text_input("Sub-Family Category")
+    shelf_life = st.number_input("Shelf Life (days)", min_value=0, step=1)
+    origin_country = st.text_input("Origin Country")
+    manufacturer = st.text_input("Manufacturer")
+    brand = st.text_input("Brand")
+    barcode = st.text_input("Barcode")
+    unit_type = st.text_input("Unit Type")
+    packaging = st.text_input("Packaging")
+    item_picture = st.text_area("Item Picture URL")
 
-def add_inventory(item_id, quantity, expiration_date, location):
-    """Add new inventory batch to the database."""
-    conn = get_connection()
-    if conn:
-        with conn.cursor() as cursor:
-            query = """
-            INSERT INTO InventoryBatch (ItemID, Quantity, ExpirationDate, StorageLocation, DateReceived, LastUpdated)
-            VALUES (%s, %s, %s, %s, CURRENT_DATE, CURRENT_TIMESTAMP)"""
-            cursor.execute(query, (item_id, quantity, expiration_date, location))
-        conn.commit()
-        conn.close()
-        st.success("New inventory batch added successfully!")
+    if st.button("Add Item"):
+        add_inventory(item_name_en, item_name_ku, class_cat, department_cat, section_cat, family_cat, sub_family_cat, shelf_life, origin_country, manufacturer, brand, barcode, unit_type, packaging, item_picture)
 
-def update_inventory(batch_id, quantity, expiration_date, location):
-    """Update existing inventory batch."""
-    conn = get_connection()
-    if conn:
-        with conn.cursor() as cursor:
-            query = """
-            UPDATE InventoryBatch
-            SET Quantity = %s, ExpirationDate = %s, StorageLocation = %s, LastUpdated = CURRENT_TIMESTAMP
-            WHERE BatchID = %s"""
-            cursor.execute(query, (quantity, expiration_date, location, batch_id))
-        conn.commit()
-        conn.close()
-        st.success("Inventory batch updated successfully!")
-
-def delete_inventory(batch_id):
-    """Delete inventory batch."""
-    conn = get_connection()
-    if conn:
-        with conn.cursor() as cursor:
-            cursor.execute("DELETE FROM InventoryBatch WHERE BatchID = %s", (batch_id,))
-        conn.commit()
-        conn.close()
-        st.warning("Inventory batch deleted!")
+if __name__ == "__main__":
+    itemadd()
