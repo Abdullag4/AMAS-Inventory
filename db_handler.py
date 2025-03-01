@@ -1,4 +1,4 @@
-import streamlit as st  # ✅ Add this import at the top
+import streamlit as st
 import psycopg2
 import pandas as pd
 
@@ -7,7 +7,7 @@ class DatabaseManager:
 
     def __init__(self):
         """Initialize database connection."""
-        self.dsn = st.secrets["neon"]["dsn"]  # ✅ Now `st` is recognized
+        self.dsn = st.secrets["neon"]["dsn"]
 
     def get_connection(self):
         """Create a new database connection."""
@@ -54,3 +54,15 @@ class DatabaseManager:
         """Retrieve all inventory records."""
         query = "SELECT * FROM Inventory"
         return self.fetch_data(query)
+
+    def add_item(self, item_data):
+        """Insert a new item dynamically based on the provided dictionary keys."""
+        columns = ", ".join(item_data.keys())  # Convert dict keys to column names
+        values_placeholders = ", ".join(["%s"] * len(item_data))  # Create "%s, %s, %s..."
+        
+        query = f"""
+        INSERT INTO Item ({columns}, CreatedAt, UpdatedAt)
+        VALUES ({values_placeholders}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        """
+        
+        self.execute_command(query, list(item_data.values()))  # Convert dict values to tuple
