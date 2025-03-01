@@ -1,26 +1,26 @@
 import streamlit as st
-from neon_handler import fetch_inventory
 import pandas as pd
+from db_handler import DatabaseManager
+
+db = DatabaseManager()  # ✅ Create a single DB instance
 
 def home():
     """Home page displaying an inventory overview."""
     st.title("🏠 Inventory Home Page")
     st.subheader("📊 Inventory Overview")
 
-    # Fetch inventory data
-    df = fetch_inventory()
+    df = db.get_inventory()
 
     if not df.empty:
         st.metric(label="Total Inventory Items", value=len(df))
-        total_quantity = df["Quantity"].sum()
+        total_quantity = df["QuantityInStock"].sum()
         st.metric(label="Total Stock Quantity", value=total_quantity)
 
-        # Show upcoming expired items
-        st.subheader("⚠️ Items Near Expiry")
-        expired_items = df[df["ExpirationDate"] <= pd.to_datetime("today") + pd.Timedelta(days=30)]
-        if not expired_items.empty:
-            st.dataframe(expired_items)
+        st.subheader("⚠️ Items Near Reorder")
+        low_stock_items = df[df["QuantityInStock"] <= df["ReorderThreshold"]]
+        if not low_stock_items.empty:
+            st.dataframe(low_stock_items)
         else:
-            st.success("No items are near expiry in the next 30 days.")
+            st.success("All stock levels are sufficient.")
     else:
         st.info("No inventory data available.")
