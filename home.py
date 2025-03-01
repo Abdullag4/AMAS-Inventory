@@ -9,7 +9,14 @@ def home():
     st.title("🏠 Inventory Home Page")
     st.subheader("📊 Inventory Overview")
 
-    df = db.get_inventory()
+    # ✅ Fetch inventory with item details
+    query = """
+    SELECT i.ItemNameEnglish, i.ClassCat, i.DepartmentCat, i.SectionCat, 
+           i.FamilyCat, i.SubFamilyCat, inv.Quantity, inv.ExpirationDate, inv.StorageLocation 
+    FROM Inventory inv
+    JOIN Item i ON inv.ItemID = i.ItemID
+    """
+    df = db.fetch_data(query)
 
     if not df.empty:
         st.metric(label="Total Inventory Items", value=len(df))
@@ -17,21 +24,14 @@ def home():
         # ✅ Check available column names
         st.write("🔍 Columns in Inventory Data:", df.columns.tolist())
 
-        # ✅ Check if "QuantityInStock" exists, otherwise use "Quantity"
-        if "QuantityInStock" in df.columns:
-            total_quantity = df["QuantityInStock"].sum()
-        elif "Quantity" in df.columns:
-            total_quantity = df["Quantity"].sum()
-        else:
-            total_quantity = 0  # Fallback to avoid errors
+        # ✅ Check if "Quantity" exists
+        total_quantity = df["Quantity"].sum() if "Quantity" in df.columns else 0
 
         st.metric(label="Total Stock Quantity", value=total_quantity)
 
         st.subheader("⚠️ Items Near Reorder")
-        if "QuantityInStock" in df.columns and "ReorderThreshold" in df.columns:
-            low_stock_items = df[df["QuantityInStock"] <= df["ReorderThreshold"]]
-        elif "Quantity" in df.columns and "ReorderThreshold" in df.columns:
-            low_stock_items = df[df["Quantity"] <= df["ReorderThreshold"]]
+        if "Quantity" in df.columns:
+            low_stock_items = df[df["Quantity"] <= 10]  # Example threshold for low stock
         else:
             low_stock_items = pd.DataFrame()  # Empty DataFrame if missing columns
 
@@ -40,7 +40,7 @@ def home():
         else:
             st.success("All stock levels are sufficient.")
         
-        # ✅ Show the full inventory as a table
+        # ✅ Show the full inventory with item names and categories
         st.subheader("📋 Full Inventory Data")
         st.dataframe(df)
     else:
