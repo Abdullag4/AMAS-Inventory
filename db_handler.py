@@ -57,12 +57,15 @@ class DatabaseManager:
         query = "SELECT * FROM Inventory"
         return self.fetch_data(query)
 
-    def add_item(self, item_data):
-        """Insert a new item into the Item table."""
-        query = """
-        INSERT INTO Item (ItemNameEnglish, ItemNameKurdish, ClassCat, DepartmentCat, SectionCat, 
-                          FamilyCat, SubFamilyCat, ShelfLife, OriginCountry, Manufacturer, Brand, 
-                          Barcode, UnitType, Packaging, ItemPicture, CreatedAt, UpdatedAt)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        """
-        self.execute_command(query, item_data)
+   def add_item(self, item_data):
+    """Insert a new item dynamically based on the provided dictionary keys."""
+    
+    columns = ", ".join(item_data.keys())  # Convert dict keys to column names
+    values_placeholders = ", ".join(["%s"] * len(item_data))  # Create "%s, %s, %s..."
+    
+    query = f"""
+    INSERT INTO Item ({columns}, CreatedAt, UpdatedAt)
+    VALUES ({values_placeholders}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    """
+    
+    self.execute_command(query, list(item_data.values()))  # Convert dict values to tuple
