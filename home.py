@@ -30,7 +30,7 @@ def home():
             df["quantity"] = pd.to_numeric(df["quantity"], errors="coerce").astype("Int64")  # Convert to integer
 
             # ✅ Group by ItemID, ExpirationDate, StorageLocation and sum Quantity
-            df = df.groupby(["itemid", "expirationdate", "storagelocation"], as_index=False).agg({
+            df = df.groupby(["itemid", "expirationdate"], as_index=False).agg({
                 "itemnameenglish": "first",  # Keep the first value per group
                 "classcat": "first",
                 "departmentcat": "first",
