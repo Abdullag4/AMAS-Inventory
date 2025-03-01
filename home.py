@@ -12,7 +12,8 @@ def home():
     # ✅ Fetch inventory with item details
     query = """
     SELECT i.ItemNameEnglish, i.ClassCat, i.DepartmentCat, i.SectionCat, 
-           i.FamilyCat, i.SubFamilyCat, inv.Quantity, inv.ExpirationDate, inv.StorageLocation 
+           i.FamilyCat, i.SubFamilyCat, inv.Quantity, inv.ExpirationDate, 
+           inv.StorageLocation, i.Threshold, i.AverageRequired 
     FROM Inventory inv
     JOIN Item i ON inv.ItemID = i.ItemID
     """
@@ -33,18 +34,18 @@ def home():
             total_quantity = "N/A"
 
         st.metric(label="Total Stock Quantity", value=total_quantity)
-        
+
+        # ✅ Items Near Reorder
         st.subheader("⚠️ Items Near Reorder")
-        if "quantity" in df.columns and "threshold" in df.columns and "averagerequired" in df.columns:
-            low_stock_items = df[df["quantity"] < df["threshold"]]
+        if {"quantity", "threshold", "averagerequired"}.issubset(df.columns):
+            low_stock_items = df[df["quantity"] < df["threshold"]].copy()
             if not low_stock_items.empty:
                 low_stock_items["ReorderAmount"] = low_stock_items["averagerequired"] - low_stock_items["quantity"]
-                st.dataframe(low_stock_items[["ItemNameEnglish", "Quantity", "Threshold", "ReorderAmount"]])
+                st.dataframe(low_stock_items[["itemnameenglish", "quantity", "threshold", "reorderamount"]])
             else:
                 st.success("All stock levels are sufficient.")
 
-        
-        # ✅ Show the full inventory with item names and categories
+        # ✅ Show full inventory with item names and categories
         st.subheader("📋 Full Inventory Data")
         st.dataframe(df)
     else:
