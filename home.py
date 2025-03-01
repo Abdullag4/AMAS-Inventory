@@ -25,6 +25,10 @@ def home():
         # ✅ Normalize column names to lowercase
         df.columns = df.columns.str.lower()
 
+        # ✅ Debugging: Show fetched column names
+        st.write("🔍 Debug: Available Columns", df.columns.tolist())
+        st.write("🔍 Debug: Sample Data", df.head())
+
         # ✅ Ensure "quantity" column exists before summing
         if "quantity" in df.columns:
             df["quantity"] = pd.to_numeric(df["quantity"], errors="coerce").astype("Int64")  # Convert to integer
@@ -37,10 +41,23 @@ def home():
 
         # ✅ Items Near Reorder
         st.subheader("⚠️ Items Near Reorder")
-        if {"quantity", "threshold", "averagerequired"}.issubset(df.columns):
+        required_columns = {"quantity", "threshold", "averagerequired"}
+
+        # ✅ Ensure all required columns exist before processing reorder logic
+        missing_columns = required_columns - set(df.columns)
+        if missing_columns:
+            st.warning(f"⚠️ Missing columns in database: {missing_columns}")
+        else:
             low_stock_items = df[df["quantity"] < df["threshold"]].copy()
+
             if not low_stock_items.empty:
-                low_stock_items["ReorderAmount"] = low_stock_items["averagerequired"] - low_stock_items["quantity"]
+                # ✅ Fill NaN values to avoid errors
+                low_stock_items["quantity"].fillna(0, inplace=True)
+                low_stock_items["averagerequired"].fillna(0, inplace=True)
+
+                # ✅ Create reorder amount column safely
+                low_stock_items["reorderamount"] = low_stock_items["averagerequired"] - low_stock_items["quantity"]
+
                 st.dataframe(low_stock_items[["itemnameenglish", "quantity", "threshold", "reorderamount"]])
             else:
                 st.success("All stock levels are sufficient.")
