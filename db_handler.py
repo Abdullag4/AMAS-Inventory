@@ -50,22 +50,15 @@ class DatabaseManager:
             return rows
         return []
 
-    # ✅ Modular Methods for Specific Tasks
-
-    def get_inventory(self):
-        """Retrieve all inventory records."""
-        query = "SELECT * FROM Inventory"
-        return self.fetch_data(query)
-
-   def add_item(self, item_data):
-    """Insert a new item dynamically based on the provided dictionary keys."""
-    
-    columns = ", ".join(item_data.keys())  # Convert dict keys to column names
-    values_placeholders = ", ".join(["%s"] * len(item_data))  # Create "%s, %s, %s..."
-    
-    query = f"""
-    INSERT INTO Item ({columns}, CreatedAt, UpdatedAt)
-    VALUES ({values_placeholders}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-    """
-    
-    self.execute_command(query, list(item_data.values()))  # Convert dict values to tuple
+    # ✅ Modular Method for Adding Items Dynamically
+    def add_item(self, item_data):
+        """Insert a new item dynamically based on the provided dictionary keys."""
+        columns = ", ".join(item_data.keys())  # Convert dict keys to column names
+        values_placeholders = ", ".join(["%s"] * len(item_data))  # Create "%s, %s, %s..."
+        
+        query = f"""
+        INSERT INTO Item ({columns}, CreatedAt, UpdatedAt)
+        VALUES ({values_placeholders}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        """
+        
+        self.execute_command(query, list(item_data.values()))  # Convert dict values to tuple
