@@ -86,14 +86,37 @@ class DatabaseManager:
         st.success("✅ Item added successfully!")
 
     def add_inventory(self, inventory_data):
-        """Insert received items into the Inventory table."""
-        
-        columns = ", ".join(inventory_data.keys())  # Convert dict keys to column names
-        values_placeholders = ", ".join(["%s"] * len(inventory_data))  # Create "%s, %s, %s..."
-        
-        query = f"""
+    """Insert received items into the Inventory table or update quantity if same ItemID, ExpirationDate, and StorageLocation exist."""
+    
+    check_query = """
+    SELECT Quantity FROM Inventory 
+    WHERE ItemID = %s AND ExpirationDate = %s AND StorageLocation = %s
+    """
+    existing_row = self.fetch_data(check_query, (
+        inventory_data["ItemID"], inventory_data["ExpirationDate"], inventory_data["StorageLocation"]
+    ))
+
+    if not existing_row.empty:
+        # ✅ Update quantity if row exists
+        update_query = """
+        UPDATE Inventory
+        SET Quantity = Quantity + %s, LastUpdated = CURRENT_TIMESTAMP
+        WHERE ItemID = %s AND ExpirationDate = %s AND StorageLocation = %s
+        """
+        self.execute_command(update_query, (
+            inventory_data["Quantity"], inventory_data["ItemID"], 
+            inventory_data["ExpirationDate"], inventory_data["StorageLocation"]
+        ))
+        st.success("✅ Inventory updated: Quantity increased.")
+    else:
+        # ✅ Insert new record if no matching row
+        columns = ", ".join(inventory_data.keys())  
+        values_placeholders = ", ".join(["%s"] * len(inventory_data))  
+
+        insert_query = f"""
         INSERT INTO Inventory ({columns}, LastUpdated)
         VALUES ({values_placeholders}, CURRENT_TIMESTAMP)
         """
         
-        self.execute_command(query, list(inventory_data.values()))  # Convert dict values to tuple
+        self.execute_command(insert_query, list(inventory_data.values()))  
+        st.success("✅ New item added to inventory.")
