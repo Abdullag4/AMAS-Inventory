@@ -33,17 +33,16 @@ def home():
             total_quantity = "N/A"
 
         st.metric(label="Total Stock Quantity", value=total_quantity)
-
+        
         st.subheader("⚠️ Items Near Reorder")
-        if "quantity" in df.columns:
-            low_stock_items = df[df["quantity"] <= 10]  # Example threshold for low stock
-        else:
-            low_stock_items = pd.DataFrame()  # Empty DataFrame if missing columns
+        if "quantity" in df.columns and "threshold" in df.columns and "averagerequired" in df.columns:
+            low_stock_items = df[df["quantity"] < df["threshold"]]
+            if not low_stock_items.empty:
+                low_stock_items["ReorderAmount"] = low_stock_items["averagerequired"] - low_stock_items["quantity"]
+                st.dataframe(low_stock_items[["ItemNameEnglish", "Quantity", "Threshold", "ReorderAmount"]])
+            else:
+                st.success("All stock levels are sufficient.")
 
-        if not low_stock_items.empty:
-            st.dataframe(low_stock_items)
-        else:
-            st.success("All stock levels are sufficient.")
         
         # ✅ Show the full inventory with item names and categories
         st.subheader("📋 Full Inventory Data")
