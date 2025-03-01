@@ -21,11 +21,11 @@ def home():
     if not df.empty:
         st.metric(label="Total Inventory Items", value=len(df))
 
-        # ✅ Check available column names
-        st.write("🔍 Columns in Inventory Data:", df.columns.tolist())
-
-        # ✅ Check if "Quantity" exists
-        total_quantity = df["Quantity"].sum() if "Quantity" in df.columns else 0
+        # ✅ Ensure "Quantity" column exists before summing
+        if "Quantity" in df.columns and df["Quantity"].dtype in [int, float]:
+            total_quantity = df["Quantity"].sum()
+        else:
+            total_quantity = "N/A"  # Handle unexpected cases
 
         st.metric(label="Total Stock Quantity", value=total_quantity)
 
