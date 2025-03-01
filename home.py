@@ -29,9 +29,9 @@ def home():
         if "quantity" in df.columns:
             df["quantity"] = pd.to_numeric(df["quantity"], errors="coerce").astype("Int64")  # Convert to integer
 
-            # ✅ Group by ItemID, ExpirationDate, StorageLocation and sum Quantity
-            df = df.groupby(["itemid", "expirationdate", "storagelocation"], as_index=False).agg({
-                "itemnameenglish": "first",  # Keep the first value per group
+            # ✅ Group by ItemID to sum total stock for each item
+            grouped_df = df.groupby("itemid", as_index=False).agg({
+                "itemnameenglish": "first",  # Keep item name
                 "classcat": "first",
                 "departmentcat": "first",
                 "sectioncat": "first",
@@ -39,26 +39,26 @@ def home():
                 "subfamilycat": "first",
                 "threshold": "first",
                 "averagerequired": "first",
-                "quantity": "sum"  # Sum the quantity
+                "quantity": "sum"  # Sum total quantity per item
             })
 
-            total_quantity = df["quantity"].sum()
+            total_quantity = grouped_df["quantity"].sum()
         else:
             st.warning("⚠️ 'quantity' column not found in database. Check table schema.")
             total_quantity = "N/A"
 
         st.metric(label="Total Stock Quantity", value=total_quantity)
 
-        # ✅ Items Near Reorder
+        # ✅ Items Near Reorder (After Grouping)
         st.subheader("⚠️ Items Near Reorder")
         required_columns = {"quantity", "threshold", "averagerequired"}
 
         # ✅ Ensure all required columns exist before processing reorder logic
-        missing_columns = required_columns - set(df.columns)
+        missing_columns = required_columns - set(grouped_df.columns)
         if missing_columns:
             st.warning(f"⚠️ Missing columns in database: {missing_columns}")
         else:
-            low_stock_items = df[df["quantity"] < df["threshold"]].copy()
+            low_stock_items = grouped_df[grouped_df["quantity"] < grouped_df["threshold"]].copy()
 
             if not low_stock_items.empty:
                 # ✅ Fill NaN values to avoid errors
