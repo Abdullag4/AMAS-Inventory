@@ -21,19 +21,17 @@ def home():
     if not df.empty:
         st.metric(label="Total Inventory Items", value=len(df))
 
-        # ✅ Ensure "Quantity" column exists before summing
-        if "Quantity" in df.columns and df["Quantity"].dtype in [int, float]:
-            total_quantity = df["Quantity"].sum()
-        else:
-            total_quantity = "N/A"  # Handle unexpected cases
+        # ✅ Ensure Quantity is interpreted as an integer in Pandas
+        if "Quantity" in df.columns:
+            df["Quantity"] = pd.to_numeric(df["Quantity"], errors="coerce").astype("Int64")  # Ensures it's an integer
+
+        # ✅ Sum only valid numeric quantities
+        total_quantity = df["Quantity"].sum() if df["Quantity"].notna().any() else 0
 
         st.metric(label="Total Stock Quantity", value=total_quantity)
 
         st.subheader("⚠️ Items Near Reorder")
-        if "Quantity" in df.columns:
-            low_stock_items = df[df["Quantity"] <= 10]  # Example threshold for low stock
-        else:
-            low_stock_items = pd.DataFrame()  # Empty DataFrame if missing columns
+        low_stock_items = df[df["Quantity"] <= 10] if "Quantity" in df.columns else pd.DataFrame()
 
         if not low_stock_items.empty:
             st.dataframe(low_stock_items)
