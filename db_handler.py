@@ -84,3 +84,15 @@ class DatabaseManager:
 
         self.execute_command(query, list(item_data.values()))  # Convert dict values to tuple
         st.success("✅ Item added successfully!")
+        def add_inventory(self, inventory_data):
+            """Insert received items into the Inventory table."""
+            
+            columns = ", ".join(inventory_data.keys())  # Convert dict keys to column names
+            values_placeholders = ", ".join(["%s"] * len(inventory_data))  # Create "%s, %s, %s..."
+            
+            query = f"""
+            INSERT INTO Inventory ({columns}, LastUpdated)
+            VALUES ({values_placeholders}, CURRENT_TIMESTAMP)
+            """
+            
+            self.execute_command(query, list(inventory_data.values()))  # Convert dict values to tuple
