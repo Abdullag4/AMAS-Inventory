@@ -1,9 +1,13 @@
+import streamlit as st  # ✅ Add this import at the top
+import psycopg2
+import pandas as pd
+
 class DatabaseManager:
     """Handles all database interactions in a structured and modular way."""
 
     def __init__(self):
         """Initialize database connection."""
-        self.dsn = st.secrets["neon"]["dsn"]
+        self.dsn = st.secrets["neon"]["dsn"]  # ✅ Now `st` is recognized
 
     def get_connection(self):
         """Create a new database connection."""
