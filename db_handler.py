@@ -49,16 +49,18 @@ class DatabaseManager:
             conn.close()
             return rows
         return []
+        
+        def get_inventory(self):
+            """Retrieve all inventory records with reorder details."""
+            query = """
+            SELECT i.ItemNameEnglish, i.ClassCat, i.DepartmentCat, i.SectionCat, 
+            i.FamilyCat, i.SubFamilyCat, inv.Quantity, inv.ExpirationDate, 
+            inv.StorageLocation, i.Threshold, i.AverageRequired 
+            FROM Inventory inv
+            JOIN Item i ON inv.ItemID = i.ItemID
+            """
+            return self.fetch_data(query)
 
-    def get_inventory(self):
-        """Retrieve all inventory records and ensure Quantity is included."""
-        query = """
-        SELECT i.ItemNameEnglish, i.ClassCat, i.DepartmentCat, i.SectionCat, 
-               i.FamilyCat, i.SubFamilyCat, inv.Quantity, inv.ExpirationDate, inv.StorageLocation 
-        FROM Inventory inv
-        JOIN Item i ON inv.ItemID = i.ItemID
-        """
-        return self.fetch_data(query)
 
     def item_exists(self, item_data):
         """Check if an item already exists based on unique fields."""
