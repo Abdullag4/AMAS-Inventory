@@ -18,16 +18,16 @@ class DatabaseManager:
             return None
 
     def fetch_data(self, query, params=None):
-        """Execute a SELECT query and return results as a Pandas DataFrame."""
-        conn = self.get_connection()
-        if conn:
-            with conn.cursor() as cur:
-                cur.execute(query, params or ())
-                rows = cur.fetchall()
-                columns = [desc[0] for desc in cur.description]
-            conn.close()
-            return pd.DataFrame(rows, columns=columns) if rows else pd.DataFrame()
-        return pd.DataFrame()
+    """Execute a SELECT query and return results as a Pandas DataFrame."""
+    conn = self.get_connection()
+    if conn:
+        with conn.cursor() as cur:
+            cur.execute(query, params or ())
+            rows = cur.fetchall()
+            columns = [desc[0] for desc in cur.description]  # ✅ Ensure column names
+        conn.close()
+        return pd.DataFrame(rows, columns=columns) if rows else pd.DataFrame()
+    return pd.DataFrame()
 
     def execute_command(self, query, params=None):
         """Execute INSERT, UPDATE, DELETE queries (No Return)."""
