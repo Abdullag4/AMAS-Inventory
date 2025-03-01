@@ -55,14 +55,32 @@ class DatabaseManager:
         query = "SELECT * FROM Inventory"
         return self.fetch_data(query)
 
+    def item_exists(self, item_data):
+        """Check if an item already exists based on unique fields."""
+        query = """
+        SELECT 1 FROM Item 
+        WHERE ItemNameEnglish = %s AND ClassCat = %s 
+        AND Manufacturer = %s AND Brand = %s AND Barcode = %s
+        """
+        result = self.fetch_data(query, (
+            item_data["ItemNameEnglish"], item_data["ClassCat"],
+            item_data["Manufacturer"], item_data["Brand"], item_data["Barcode"]
+        ))
+        return not result.empty
+
     def add_item(self, item_data):
         """Insert a new item dynamically based on the provided dictionary keys."""
+        if self.item_exists(item_data):
+            st.warning("⚠️ This item already exists and cannot be added again.")
+            return
+
         columns = ", ".join(item_data.keys())  # Convert dict keys to column names
         values_placeholders = ", ".join(["%s"] * len(item_data))  # Create "%s, %s, %s..."
-        
+
         query = f"""
         INSERT INTO Item ({columns}, CreatedAt, UpdatedAt)
         VALUES ({values_placeholders}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         """
-        
+
         self.execute_command(query, list(item_data.values()))  # Convert dict values to tuple
+        st.success("✅ Item added successfully!")
