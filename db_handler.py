@@ -49,11 +49,11 @@ class DatabaseManager:
             conn.close()
             return rows
         return []
-
-    def get_inventory(self):
-    """Retrieve all inventory records and ensure Quantity is included."""
-    query = "SELECT ItemID, Quantity, ExpirationDate, StorageLocation FROM Inventory"
-    return self.fetch_data(query)
+        
+        def get_inventory(self):
+            """Retrieve all inventory records and ensure Quantity is included."""
+            query = "SELECT ItemID, Quantity, ExpirationDate, StorageLocation FROM Inventory"
+            return self.fetch_data(query)
 
     def item_exists(self, item_data):
         """Check if an item already exists based on unique fields."""
