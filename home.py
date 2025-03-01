@@ -24,19 +24,22 @@ def home():
         # ✅ Debugging: Show available column names
         st.write("🔍 Columns in Inventory Data:", df.columns.tolist())
 
-        # ✅ Ensure "Quantity" column exists before summing
-        if "Quantity" in df.columns:
-            df["Quantity"] = pd.to_numeric(df["Quantity"], errors="coerce").astype("Int64")  # Convert to integer
-            total_quantity = df["Quantity"].sum()
+        # ✅ Normalize column names to lowercase
+        df.columns = df.columns.str.lower()  # Convert all column names to lowercase
+
+        # ✅ Use lowercase column name for checking
+        if "quantity" in df.columns:
+            df["quantity"] = pd.to_numeric(df["quantity"], errors="coerce").astype("Int64")  # Convert to integer
+            total_quantity = df["quantity"].sum()
         else:
-            st.warning("⚠️ 'Quantity' column not found in database. Check table schema.")
+            st.warning("⚠️ 'quantity' column not found in database. Check table schema.")
             total_quantity = "N/A"
 
         st.metric(label="Total Stock Quantity", value=total_quantity)
 
         st.subheader("⚠️ Items Near Reorder")
-        if "Quantity" in df.columns:
-            low_stock_items = df[df["Quantity"] <= 10]  # Example threshold for low stock
+        if "quantity" in df.columns:
+            low_stock_items = df[df["quantity"] <= 10]  # Example threshold for low stock
         else:
             low_stock_items = pd.DataFrame()  # Empty DataFrame if missing columns
 
