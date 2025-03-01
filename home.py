@@ -29,8 +29,8 @@ def home():
         if "quantity" in df.columns:
             df["quantity"] = pd.to_numeric(df["quantity"], errors="coerce").astype("Int64")  # Convert to integer
 
-            # ✅ Group by ItemID to sum total stock for each item
-            grouped_df = df.groupby("itemid", as_index=False).agg({
+            # ✅ Group inventory by ItemID, ExpirationDate, StorageLocation
+            df = df.groupby(["itemid", "expirationdate", "storagelocation"], as_index=False).agg({
                 "itemnameenglish": "first",  # Keep item name
                 "classcat": "first",
                 "departmentcat": "first",
@@ -39,26 +39,34 @@ def home():
                 "subfamilycat": "first",
                 "threshold": "first",
                 "averagerequired": "first",
-                "quantity": "sum"  # Sum total quantity per item
+                "quantity": "sum"  # Sum quantity for merged rows
             })
 
-            total_quantity = grouped_df["quantity"].sum()
+            total_quantity = df["quantity"].sum()
         else:
             st.warning("⚠️ 'quantity' column not found in database. Check table schema.")
             total_quantity = "N/A"
 
         st.metric(label="Total Stock Quantity", value=total_quantity)
 
-        # ✅ Items Near Reorder (After Grouping)
+        # ✅ Items Near Reorder (Summed per ItemID)
         st.subheader("⚠️ Items Near Reorder")
-        required_columns = {"quantity", "threshold", "averagerequired"}
+        required_columns = {"itemid", "quantity", "threshold", "averagerequired"}
 
         # ✅ Ensure all required columns exist before processing reorder logic
-        missing_columns = required_columns - set(grouped_df.columns)
+        missing_columns = required_columns - set(df.columns)
         if missing_columns:
             st.warning(f"⚠️ Missing columns in database: {missing_columns}")
         else:
-            low_stock_items = grouped_df[grouped_df["quantity"] < grouped_df["threshold"]].copy()
+            # ✅ Sum total quantity per ItemID
+            grouped_reorder_df = df.groupby("itemid", as_index=False).agg({
+                "itemnameenglish": "first",  
+                "quantity": "sum",  
+                "threshold": "first",
+                "averagerequired": "first"
+            })
+
+            low_stock_items = grouped_reorder_df[grouped_reorder_df["quantity"] < grouped_reorder_df["threshold"]].copy()
 
             if not low_stock_items.empty:
                 # ✅ Fill NaN values to avoid errors
@@ -72,7 +80,7 @@ def home():
             else:
                 st.success("All stock levels are sufficient.")
 
-        # ✅ Show full inventory with item names and categories
+        # ✅ Show full inventory with merged rows
         st.subheader("📋 Full Inventory Data")
         st.dataframe(df)
     else:
