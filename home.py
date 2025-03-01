@@ -21,13 +21,10 @@ def home():
     if not df.empty:
         st.metric(label="Total Inventory Items", value=len(df))
 
-        # ✅ Debugging: Show available column names
-        st.write("🔍 Columns in Inventory Data:", df.columns.tolist())
-
         # ✅ Normalize column names to lowercase
-        df.columns = df.columns.str.lower()  # Convert all column names to lowercase
+        df.columns = df.columns.str.lower()
 
-        # ✅ Use lowercase column name for checking
+        # ✅ Ensure "quantity" column exists before summing
         if "quantity" in df.columns:
             df["quantity"] = pd.to_numeric(df["quantity"], errors="coerce").astype("Int64")  # Convert to integer
             total_quantity = df["quantity"].sum()
