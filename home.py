@@ -13,11 +13,28 @@ def home():
 
     if not df.empty:
         st.metric(label="Total Inventory Items", value=len(df))
-        total_quantity = df["QuantityInStock"].sum()
+
+        # ✅ Check available column names
+        st.write("🔍 Columns in Inventory Data:", df.columns.tolist())
+
+        # ✅ Check if "QuantityInStock" exists, otherwise use "Quantity"
+        if "QuantityInStock" in df.columns:
+            total_quantity = df["QuantityInStock"].sum()
+        elif "Quantity" in df.columns:
+            total_quantity = df["Quantity"].sum()
+        else:
+            total_quantity = 0  # Fallback to avoid errors
+
         st.metric(label="Total Stock Quantity", value=total_quantity)
 
         st.subheader("⚠️ Items Near Reorder")
-        low_stock_items = df[df["QuantityInStock"] <= df["ReorderThreshold"]]
+        if "QuantityInStock" in df.columns and "ReorderThreshold" in df.columns:
+            low_stock_items = df[df["QuantityInStock"] <= df["ReorderThreshold"]]
+        elif "Quantity" in df.columns and "ReorderThreshold" in df.columns:
+            low_stock_items = df[df["Quantity"] <= df["ReorderThreshold"]]
+        else:
+            low_stock_items = pd.DataFrame()  # Empty DataFrame if missing columns
+
         if not low_stock_items.empty:
             st.dataframe(low_stock_items)
         else:
