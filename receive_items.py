@@ -11,12 +11,15 @@ def receive_items():
     # Fetch existing items from the Item table
     items_df = db.fetch_data("SELECT ItemID, ItemNameEnglish FROM Item")
 
-    if items_df.empty:
+    # ✅ Ensure the DataFrame has proper column names
+    if not items_df.empty:
+        items_df.columns = ["ItemID", "ItemNameEnglish"]  # ✅ Force correct column names
+    else:
         st.warning("⚠️ No items available. Please add items first.")
         return
 
     # Select an item from dropdown
-    item_options = {row["ItemNameEnglish"]: row["ItemID"] for _, row in items_df.iterrows()}
+    item_options = dict(zip(items_df["ItemNameEnglish"], items_df["ItemID"]))
     selected_item_name = st.selectbox("Select an Item", list(item_options.keys()))
     selected_item_id = item_options[selected_item_name]
 
@@ -36,4 +39,3 @@ def receive_items():
         }
         db.add_inventory(inventory_data)
         st.success(f"✅ {selected_item_name} added to inventory!")
-
