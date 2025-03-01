@@ -35,5 +35,4 @@ def itemadd():
             item_data[key] = st.text_input(label)
 
     if st.button("Add Item"):
-        db.add_item(item_data)  # ✅ Now works dynamically
-        st.success("Item added successfully!")
+        db.add_item(item_data)  # ✅ Prevents duplicate items now
