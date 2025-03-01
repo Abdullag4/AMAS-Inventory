@@ -11,7 +11,7 @@ def home():
 
     # ✅ Fetch inventory with item details
     query = """
-    SELECT i.ItemNameEnglish, i.ClassCat, i.DepartmentCat, i.SectionCat, 
+    SELECT i.ItemID, i.ItemNameEnglish, i.ClassCat, i.DepartmentCat, i.SectionCat, 
            i.FamilyCat, i.SubFamilyCat, inv.Quantity, inv.ExpirationDate, 
            inv.StorageLocation, i.Threshold, i.AverageRequired 
     FROM Inventory inv
@@ -25,13 +25,23 @@ def home():
         # ✅ Normalize column names to lowercase
         df.columns = df.columns.str.lower()
 
-        # ✅ Debugging: Show fetched column names
-        st.write("🔍 Debug: Available Columns", df.columns.tolist())
-        st.write("🔍 Debug: Sample Data", df.head())
-
         # ✅ Ensure "quantity" column exists before summing
         if "quantity" in df.columns:
             df["quantity"] = pd.to_numeric(df["quantity"], errors="coerce").astype("Int64")  # Convert to integer
+
+            # ✅ Group by ItemID, ExpirationDate, StorageLocation and sum Quantity
+            df = df.groupby(["itemid", "expirationdate", "storagelocation"], as_index=False).agg({
+                "itemnameenglish": "first",  # Keep the first value per group
+                "classcat": "first",
+                "departmentcat": "first",
+                "sectioncat": "first",
+                "familycat": "first",
+                "subfamilycat": "first",
+                "threshold": "first",
+                "averagerequired": "first",
+                "quantity": "sum"  # Sum the quantity
+            })
+
             total_quantity = df["quantity"].sum()
         else:
             st.warning("⚠️ 'quantity' column not found in database. Check table schema.")
