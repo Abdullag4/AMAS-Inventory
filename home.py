@@ -39,5 +39,9 @@ def home():
             st.dataframe(low_stock_items)
         else:
             st.success("All stock levels are sufficient.")
+        
+        # ✅ Show the full inventory as a table
+        st.subheader("📋 Full Inventory Data")
+        st.dataframe(df)
     else:
         st.info("No inventory data available.")
