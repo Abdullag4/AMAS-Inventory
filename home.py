@@ -21,17 +21,24 @@ def home():
     if not df.empty:
         st.metric(label="Total Inventory Items", value=len(df))
 
-        # ✅ Ensure Quantity is interpreted as an integer in Pandas
-        if "Quantity" in df.columns:
-            df["Quantity"] = pd.to_numeric(df["Quantity"], errors="coerce").astype("Int64")  # Ensures it's an integer
+        # ✅ Debugging: Show available column names
+        st.write("🔍 Columns in Inventory Data:", df.columns.tolist())
 
-        # ✅ Sum only valid numeric quantities
-        total_quantity = df["Quantity"].sum() if df["Quantity"].notna().any() else 0
+        # ✅ Ensure "Quantity" column exists before summing
+        if "Quantity" in df.columns:
+            df["Quantity"] = pd.to_numeric(df["Quantity"], errors="coerce").astype("Int64")  # Convert to integer
+            total_quantity = df["Quantity"].sum()
+        else:
+            st.warning("⚠️ 'Quantity' column not found in database. Check table schema.")
+            total_quantity = "N/A"
 
         st.metric(label="Total Stock Quantity", value=total_quantity)
 
         st.subheader("⚠️ Items Near Reorder")
-        low_stock_items = df[df["Quantity"] <= 10] if "Quantity" in df.columns else pd.DataFrame()
+        if "Quantity" in df.columns:
+            low_stock_items = df[df["Quantity"] <= 10]  # Example threshold for low stock
+        else:
+            low_stock_items = pd.DataFrame()  # Empty DataFrame if missing columns
 
         if not low_stock_items.empty:
             st.dataframe(low_stock_items)
