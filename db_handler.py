@@ -38,6 +38,18 @@ class DatabaseManager:
                 conn.commit()
             conn.close()
 
+    def execute_command_returning(self, query, params=None):
+        """Execute INSERT and return the inserted row(s)."""
+        conn = self.get_connection()
+        if conn:
+            with conn.cursor() as cur:
+                cur.execute(query, params or ())
+                rows = cur.fetchall()
+                conn.commit()
+            conn.close()
+            return rows
+        return []
+
     def get_suppliers(self):
         """Retrieve all suppliers and rename columns for consistency."""
         query = "SELECT supplierid, suppliername FROM supplier"
