@@ -75,62 +75,24 @@ class DatabaseManager:
         return not result.empty
 
     def add_item(self, item_data):
-        """Insert a new item dynamically and return its ItemID."""
+        """Insert a new item dynamically based on the provided dictionary keys."""
         if self.item_exists(item_data):
             st.warning("⚠️ This item already exists and cannot be added again.")
-            return None  # Stop execution
+            return None  # Return None if the item already exists
 
         columns = ", ".join(item_data.keys())  # Convert dict keys to column names
         values_placeholders = ", ".join(["%s"] * len(item_data))  # Create "%s, %s, %s..."
-        
+
         query = f"""
         INSERT INTO Item ({columns}, CreatedAt, UpdatedAt)
         VALUES ({values_placeholders}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        RETURNING ItemID
+        RETURNING ItemID  -- ✅ Ensure we get the newly created ItemID
         """
 
-        result = self.execute_command_returning(query, list(item_data.values()))
-        if result:
-            return result[0][0]  # Return the generated ItemID
-        return None
+        result = self.execute_command_returning(query, list(item_data.values()))  
+        return result[0][0] if result else None  # ✅ Return new ItemID
 
     def add_item_supplier(self, item_id, supplier_id):
-        """Links an item to a supplier in the ItemSupplier table."""
+        """Link an item to a supplier in the ItemSupplier table."""
         query = "INSERT INTO ItemSupplier (ItemID, SupplierID) VALUES (%s, %s)"
         self.execute_command(query, (item_id, supplier_id))
-
-    def add_inventory(self, inventory_data):
-        """Insert received items into the Inventory table or update quantity if same ItemID, ExpirationDate, and StorageLocation exist."""
-        
-        check_query = """
-        SELECT Quantity FROM Inventory 
-        WHERE ItemID = %s AND ExpirationDate = %s AND StorageLocation = %s
-        """
-        existing_row = self.fetch_data(check_query, (
-            inventory_data["ItemID"], inventory_data["ExpirationDate"], inventory_data["StorageLocation"]
-        ))
-
-        if not existing_row.empty:
-            # ✅ Update quantity if row exists
-            update_query = """
-            UPDATE Inventory
-            SET Quantity = Quantity + %s, LastUpdated = CURRENT_TIMESTAMP
-            WHERE ItemID = %s AND ExpirationDate = %s AND StorageLocation = %s
-            """
-            self.execute_command(update_query, (
-                inventory_data["Quantity"], inventory_data["ItemID"], 
-                inventory_data["ExpirationDate"], inventory_data["StorageLocation"]
-            ))
-            st.success("✅ Inventory updated: Quantity increased.")
-        else:
-            # ✅ Insert new record if no matching row
-            columns = ", ".join(inventory_data.keys())  
-            values_placeholders = ", ".join(["%s"] * len(inventory_data))  
-
-            insert_query = f"""
-            INSERT INTO Inventory ({columns}, LastUpdated)
-            VALUES ({values_placeholders}, CURRENT_TIMESTAMP)
-            """
-            
-            self.execute_command(insert_query, list(inventory_data.values()))  
-            st.success("✅ New item added to inventory.")
