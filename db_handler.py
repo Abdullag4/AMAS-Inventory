@@ -75,21 +75,29 @@ class DatabaseManager:
         return not result.empty
 
     def add_item(self, item_data):
-        """Insert a new item dynamically based on the provided dictionary keys."""
+        """Insert a new item dynamically and return its ItemID."""
         if self.item_exists(item_data):
             st.warning("⚠️ This item already exists and cannot be added again.")
-            return
+            return None  # Stop execution
 
         columns = ", ".join(item_data.keys())  # Convert dict keys to column names
         values_placeholders = ", ".join(["%s"] * len(item_data))  # Create "%s, %s, %s..."
-
+        
         query = f"""
         INSERT INTO Item ({columns}, CreatedAt, UpdatedAt)
         VALUES ({values_placeholders}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING ItemID
         """
 
-        self.execute_command(query, list(item_data.values()))  # Convert dict values to tuple
-        st.success("✅ Item added successfully!")
+        result = self.execute_command_returning(query, list(item_data.values()))
+        if result:
+            return result[0][0]  # Return the generated ItemID
+        return None
+
+    def add_item_supplier(self, item_id, supplier_id):
+        """Links an item to a supplier in the ItemSupplier table."""
+        query = "INSERT INTO ItemSupplier (ItemID, SupplierID) VALUES (%s, %s)"
+        self.execute_command(query, (item_id, supplier_id))
 
     def add_inventory(self, inventory_data):
         """Insert received items into the Inventory table or update quantity if same ItemID, ExpirationDate, and StorageLocation exist."""
