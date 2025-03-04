@@ -30,11 +30,15 @@ def edit_item_tab():
     # ✅ Retrieve selected item details
     selected_item = items_df[items_df["itemid"] == selected_item_id].iloc[0]
 
-    # ✅ Editable fields
+    # ✅ Editable fields with unique keys
     updated_data = {}
     for col in selected_item.index:
         if col not in ["itemid", "createdat", "updatedat"]:  # Prevent editing ID and timestamps
-            updated_data[col] = st.text_input(col.replace("_", " ").title(), value=str(selected_item[col]))
+            updated_data[col] = st.text_input(
+                col.replace("_", " ").title(), 
+                value=str(selected_item[col]), 
+                key=f"{col}_{selected_item_id}"  # ✅ Unique key to avoid duplicate element IDs
+            )
 
     if st.button("Update Item"):
         db.update_item(selected_item_id, updated_data)
