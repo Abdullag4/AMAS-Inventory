@@ -55,7 +55,7 @@ def add_item_tab():
             st.error("❌ Please fill in all required fields before adding the item.")
             return
 
-        item_id = db.add_item(item_data)
+        item_id = db.add_item(item_data, selected_supplier_ids)
         if item_id and selected_supplier_names:
             for supplier_name in selected_supplier_names:
                 supplier_id = supplier_options[supplier_name]
