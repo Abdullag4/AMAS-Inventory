@@ -47,4 +47,3 @@ def edit_item_tab():
         """
         db.execute_command(query, list(updated_data.values()) + [selected_item_id])
         st.success("✅ Item details updated successfully!")
-
