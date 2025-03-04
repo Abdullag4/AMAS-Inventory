@@ -38,46 +38,16 @@ class DatabaseManager:
                 conn.commit()
             conn.close()
 
-    def execute_command_returning(self, query, params=None):
-        """Execute an INSERT or UPDATE query and return affected rows."""
-        conn = self.get_connection()
-        if conn:
-            with conn.cursor() as cur:
-                cur.execute(query, params or ())
-                rows = cur.fetchall()
-                conn.commit()
-            conn.close()
-            return rows
-        return []
-
     def get_suppliers(self):
         """Retrieve all suppliers."""
         query = "SELECT SupplierID, SupplierName FROM Supplier"
-        return self.fetch_data(query)
+        df = self.fetch_data(query)
 
-    def add_item(self, item_data, supplier_ids):
-        """Insert a new item dynamically and link it to suppliers."""
-        columns = ", ".join(item_data.keys())  
-        values_placeholders = ", ".join(["%s"] * len(item_data))  
+        # ✅ Debugging: Show column names
+        if df.empty:
+            st.warning("⚠️ No suppliers found in the database!")
+        else:
+            st.write("🔍 Supplier Table Columns:", df.columns.tolist())
 
-        insert_query = f"""
-        INSERT INTO Item ({columns}, CreatedAt, UpdatedAt)
-        VALUES ({values_placeholders}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        RETURNING ItemID
-        """
+        return df
 
-        item_id = self.execute_command_returning(insert_query, list(item_data.values()))
-        
-        if item_id:
-            self.link_item_suppliers(item_id[0][0], supplier_ids)  
-            return item_id[0][0]
-        return None
-
-    def link_item_suppliers(self, item_id, supplier_ids):
-        """Link an item to multiple suppliers in ItemSupplier table."""
-        for supplier_id in supplier_ids:
-            query = """
-            INSERT INTO ItemSupplier (ItemID, SupplierID) 
-            VALUES (%s, %s) ON CONFLICT DO NOTHING
-            """
-            self.execute_command(query, (item_id, supplier_id))
