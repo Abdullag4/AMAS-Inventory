@@ -1,13 +1,14 @@
 import streamlit as st
 from db_handler import DatabaseManager
+import pandas as pd
 
-db = DatabaseManager()
+db = DatabaseManager()  # ✅ Create a single DB instance
 
 def add_item_tab():
-    """Tab for adding new items manually."""
-    st.subheader("➕ Add New Item")
+    """Tab for adding a new item to the database with supplier selection."""
+    st.header("➕ Add New Item")
 
-    # Define required fields
+    # ✅ Define item fields dynamically
     item_fields = {
         "ItemNameEnglish": "Item Name (English) *",
         "ItemNameKurdish": "Item Name (Kurdish)",
@@ -24,11 +25,11 @@ def add_item_tab():
         "UnitType": "Unit Type",
         "Packaging": "Packaging",
         "ItemPicture": "Item Picture URL",
-        "Threshold": "Threshold *",
-        "AverageRequired": "Average Required *"
+        "Threshold": "Minimum Stock Threshold *",
+        "AverageRequired": "Average Stock Requirement *"
     }
 
-    # ✅ Input fields
+    # ✅ Generate input fields dynamically
     item_data = {}
     for key, label in item_fields.items():
         if key in ["ShelfLife", "Threshold", "AverageRequired"]:
@@ -36,29 +37,30 @@ def add_item_tab():
         else:
             item_data[key] = st.text_input(label)
 
-    # ✅ Fetch supplier list
-    suppliers_df = db.fetch_data("SELECT SupplierID, SupplierName FROM Supplier")
+    # ✅ Ensure suppliers are properly retrieved
+    suppliers_df = db.get_suppliers()
+    if not suppliers_df.empty:
+        supplier_options = dict(zip(suppliers_df["SupplierName"], suppliers_df["SupplierID"]))  
+        selected_supplier_names = st.multiselect("Select Supplier(s) *", list(supplier_options.keys()))
 
-    if suppliers_df.empty:
-        st.warning("⚠️ No suppliers available! Please add suppliers first.")
-        return  
+        # ✅ Convert selected names to supplier IDs
+        selected_supplier_ids = [supplier_options[name] for name in selected_supplier_names]
+    else:
+        st.warning("⚠️ No suppliers available. Please add suppliers before assigning items.")
+        selected_supplier_ids = []
 
-    # ✅ Supplier selection
-    suppliers_df.columns = suppliers_df.columns.str.lower()
-    supplier_options = dict(zip(suppliers_df["suppliername"], suppliers_df["supplierid"]))
-    selected_supplier_names = st.multiselect("Select Supplier(s) *", list(supplier_options.keys()))
-
-    # ✅ Ensure required fields are filled
-    required_fields = ["ItemNameEnglish", "ClassCat", "DepartmentCat", "ShelfLife", "Threshold", "AverageRequired"]
+    # ✅ Handle Item Submission
     if st.button("Add Item"):
-        if any(item_data[field] in [None, ""] for field in required_fields):
+        required_fields = ["ItemNameEnglish", "ClassCat", "DepartmentCat", "ShelfLife", "Threshold", "AverageRequired"]
+        if any(not item_data[field] for field in required_fields):
             st.error("❌ Please fill in all required fields before adding the item.")
             return
-
+        
+        if not selected_supplier_ids:
+            st.error("❌ Please select at least one supplier.")
+            return
+        
+        # ✅ Add the item and link suppliers
         item_id = db.add_item(item_data, selected_supplier_ids)
-        if item_id and selected_supplier_names:
-            for supplier_name in selected_supplier_names:
-                supplier_id = supplier_options[supplier_name]
-                db.add_item_supplier(item_id, supplier_id)
-
-        st.success("✅ Item and supplier(s) linked successfully!")
+        if item_id:
+            st.success("✅ Item added successfully and linked to suppliers!")
