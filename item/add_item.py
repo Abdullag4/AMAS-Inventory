@@ -1,6 +1,5 @@
 import streamlit as st
 from db_handler import DatabaseManager
-import pandas as pd
 
 db = DatabaseManager()  # ✅ Create a single DB instance
 
