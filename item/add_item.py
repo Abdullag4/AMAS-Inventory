@@ -37,16 +37,17 @@ def add_item_tab():
         else:
             item_data[key] = st.text_input(label)
 
-    # ✅ Ensure suppliers are properly retrieved
+    # ✅ Fetch and Debug Supplier Data
     suppliers_df = db.get_suppliers()
-    if not suppliers_df.empty:
+    
+    if not suppliers_df.empty and "SupplierName" in suppliers_df.columns:
         supplier_options = dict(zip(suppliers_df["SupplierName"], suppliers_df["SupplierID"]))  
         selected_supplier_names = st.multiselect("Select Supplier(s) *", list(supplier_options.keys()))
 
         # ✅ Convert selected names to supplier IDs
         selected_supplier_ids = [supplier_options[name] for name in selected_supplier_names]
     else:
-        st.warning("⚠️ No suppliers available. Please add suppliers before assigning items.")
+        st.warning("⚠️ No suppliers available or missing SupplierName column in the database.")
         selected_supplier_ids = []
 
     # ✅ Handle Item Submission
