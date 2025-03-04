@@ -49,8 +49,6 @@ class DatabaseManager:
 
         if df.empty:
             st.warning("⚠️ No suppliers found in the database!")
-        else:
-            st.write("🔍 Supplier Table Columns:", df.columns.tolist())
 
         return df
 
@@ -64,8 +62,33 @@ class DatabaseManager:
         FROM item
         """
         df = self.fetch_data(query)
-
-        # ✅ Normalize column names
         df.columns = df.columns.str.lower()
         return df
 
+    def add_item(self, item_data, supplier_ids):
+        """Insert a new item into the Item table and link suppliers in ItemSupplier table."""
+        columns = ", ".join(item_data.keys())
+        values_placeholders = ", ".join(["%s"] * len(item_data))
+
+        query = f"""
+        INSERT INTO Item ({columns}, CreatedAt, UpdatedAt)
+        VALUES ({values_placeholders}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING ItemID
+        """
+        
+        item_id = self.execute_command_returning(query, list(item_data.values()))
+
+        if item_id:
+            self.link_item_suppliers(item_id[0][0], supplier_ids)
+            return item_id[0][0]  # Return the newly added ItemID
+        return None
+
+    def link_item_suppliers(self, item_id, supplier_ids):
+        """Link the newly added item to selected suppliers."""
+        for supplier_id in supplier_ids:
+            query = """
+            INSERT INTO ItemSupplier (ItemID, SupplierID)
+            VALUES (%s, %s)
+            ON CONFLICT DO NOTHING
+            """
+            self.execute_command(query, (item_id, supplier_id))
