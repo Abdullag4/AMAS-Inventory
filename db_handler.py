@@ -28,7 +28,7 @@ class DatabaseManager:
             conn.close()
             return pd.DataFrame(rows, columns=columns) if rows else pd.DataFrame()
         return pd.DataFrame()
-        
+
     def execute_command(self, query, params=None):
         """Execute INSERT, UPDATE, DELETE queries (No Return)."""
         conn = self.get_connection()
@@ -61,6 +61,16 @@ class DatabaseManager:
         """
         return self.fetch_data(query)
 
+    def get_items(self):
+        """Retrieve all items with their details."""
+        query = """
+        SELECT itemid, itemnameenglish, classcat, departmentcat, sectioncat, 
+               familycat, subfamilycat, shelflife, origincountry, manufacturer, 
+               brand, barcode, unittype, packaging, threshold, averagerequired
+        FROM item
+        """
+        return self.fetch_data(query)
+
     def item_exists(self, item_data):
         """Check if an item already exists based on unique fields."""
         query = """
@@ -78,7 +88,7 @@ class DatabaseManager:
         """Insert a new item dynamically based on the provided dictionary keys."""
         if self.item_exists(item_data):
             st.warning("⚠️ This item already exists and cannot be added again.")
-            return None  # Return None if the item already exists
+            return
 
         columns = ", ".join(item_data.keys())  # Convert dict keys to column names
         values_placeholders = ", ".join(["%s"] * len(item_data))  # Create "%s, %s, %s..."
@@ -86,13 +96,18 @@ class DatabaseManager:
         query = f"""
         INSERT INTO Item ({columns}, CreatedAt, UpdatedAt)
         VALUES ({values_placeholders}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        RETURNING ItemID  -- ✅ Ensure we get the newly created ItemID
         """
 
-        result = self.execute_command_returning(query, list(item_data.values()))  
-        return result[0][0] if result else None  # ✅ Return new ItemID
+        self.execute_command(query, list(item_data.values()))  # Convert dict values to tuple
+        st.success("✅ Item added successfully!")
 
-    def add_item_supplier(self, item_id, supplier_id):
-        """Link an item to a supplier in the ItemSupplier table."""
-        query = "INSERT INTO ItemSupplier (ItemID, SupplierID) VALUES (%s, %s)"
-        self.execute_command(query, (item_id, supplier_id))
+    def update_item(self, item_id, updated_data):
+        """Update an item's details dynamically."""
+        columns = ", ".join([f"{key} = %s" for key in updated_data.keys()])
+        query = f"""
+        UPDATE Item 
+        SET {columns}, UpdatedAt = CURRENT_TIMESTAMP
+        WHERE ItemID = %s
+        """
+        self.execute_command(query, list(updated_data.values()) + [item_id])
+        st.success("✅ Item details updated successfully!")
