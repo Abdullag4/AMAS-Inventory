@@ -88,26 +88,42 @@ def bulk_add_tab():
                 st.error("❌ 'SupplierName' column not found in supplier table. Check database structure.")
                 return
 
+            # ✅ Create a set of available supplier names (for fast lookup)
+            existing_suppliers = set(supplier_df["suppliername"].str.lower())
+
             # ✅ Insert items into the database
+            items_added = 0
+            missing_suppliers = set()  # ✅ Track missing suppliers
+
             for _, row in df.iterrows():
+                supplier_name = row["suppliername"].strip().lower()  # ✅ Normalize case & spaces
+
+                # ✅ Check if supplier exists
+                if supplier_name not in existing_suppliers:
+                    missing_suppliers.add(row["suppliername"])  # ✅ Track missing supplier
+                    continue  # ✅ Skip this item (DO NOT ADD)
+
                 # ✅ Convert item data (skip "suppliername" column)
                 item_data = {
                     key: int(value) if isinstance(value, (np.int64, float)) else value
                     for key, value in row.items() if key != "suppliername"
                 }
 
-                supplier_name = row["suppliername"]
-
                 # ✅ Get Supplier ID from name
-                supplier_match = supplier_df[supplier_df["suppliername"].str.lower() == supplier_name.lower()]
-                
-                if not supplier_match.empty:
-                    supplier_id = int(supplier_match.iloc[0]["supplierid"])  # ✅ Convert supplier_id to int
-                    db.add_item(item_data, [supplier_id])  # ✅ Link item to supplier
-                else:
-                    st.warning(f"⚠️ Supplier '{supplier_name}' not found. Item '{row['itemnameenglish']}' was not added.")
+                supplier_match = supplier_df[supplier_df["suppliername"].str.lower() == supplier_name]
+                supplier_id = int(supplier_match.iloc[0]["supplierid"])  # ✅ Convert supplier_id to int
 
-            st.success("✅ Items added successfully!")
+                # ✅ Add the item & link to supplier
+                db.add_item(item_data, [supplier_id])
+                items_added += 1
+
+            # ✅ Success Message
+            if items_added > 0:
+                st.success(f"✅ {items_added} items added successfully!")
+
+            # ✅ Warning for missing suppliers
+            if missing_suppliers:
+                st.warning(f"⚠️ The following suppliers were not found in the database, so their items were not added: {', '.join(missing_suppliers)}")
 
         except Exception as e:
             st.error(f"❌ Error processing file: {e}")
