@@ -9,6 +9,7 @@ def generate_example_excel():
     """Generate an example Excel file with all required columns for bulk item addition."""
     sample_data = {
         "ItemNameEnglish": ["Paracetamol 500mg", "Ibuprofen 200mg"],
+        "ItemNameKurdish": ["پاراستامۆل ٥٠٠مگ", "ئەيبۆپڕۆفێن ٢٠٠مگ"],  # ✅ Kurdish name added
         "ClassCat": ["Pain Reliever", "Anti-Inflammatory"],
         "DepartmentCat": ["Pharmacy", "Pharmacy"],
         "SectionCat": ["OTC", "OTC"],
@@ -23,7 +24,7 @@ def generate_example_excel():
         "Barcode": ["1234567890123", "9876543210987"],
         "UnitType": ["Box", "Pack"],
         "Packaging": ["Blister", "Bottle"],
-        "SupplierName": ["Supplier A", "Supplier B"]  # ✅ NEW: Suppliers must be added
+        "SupplierName": ["Supplier A", "Supplier B"]  # ✅ Supplier Name for mapping
     }
 
     df = pd.DataFrame(sample_data)
@@ -59,7 +60,7 @@ def bulk_add_tab():
 
             # ✅ Ensure all required columns exist
             required_columns = [
-                "ItemNameEnglish", "ClassCat", "DepartmentCat", "ShelfLife", 
+                "ItemNameEnglish", "ItemNameKurdish", "ClassCat", "DepartmentCat", "ShelfLife", 
                 "Threshold", "AverageRequired", "SupplierName"
             ]
             missing_columns = [col for col in required_columns if col not in df.columns]
@@ -72,13 +73,19 @@ def bulk_add_tab():
             df["Threshold"] = df["Threshold"].astype(int)
             df["AverageRequired"] = df["AverageRequired"].astype(int)
 
+            # ✅ Fetch supplier data
+            supplier_df = db.get_suppliers()
+
             # ✅ Insert items into the database
             for _, row in df.iterrows():
                 item_data = row.drop("SupplierName").to_dict()  # ✅ Exclude supplier temporarily
                 supplier_name = row["SupplierName"]
 
+                if "SupplierName" not in supplier_df.columns:
+                    st.error("❌ 'SupplierName' column not found in database. Please check table structure.")
+                    return
+
                 # ✅ Get Supplier ID from name
-                supplier_df = db.get_suppliers()
                 supplier_id = supplier_df.loc[supplier_df["SupplierName"] == supplier_name, "SupplierID"]
                 
                 if not supplier_id.empty:
