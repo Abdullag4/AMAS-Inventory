@@ -59,10 +59,10 @@ class DatabaseManager:
         return result["suppliername"].tolist() if not result.empty else []
 
     def add_item(self, item_data, supplier_ids):
-        """Insert a new item into the Item table and link suppliers."""
+        """Insert a new item and link it to suppliers."""
         columns = ", ".join(item_data.keys())
         values_placeholders = ", ".join(["%s"] * len(item_data))
-
+        
         query = f"""
         INSERT INTO Item ({columns}, CreatedAt, UpdatedAt)
         VALUES ({values_placeholders}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
@@ -72,15 +72,16 @@ class DatabaseManager:
         item_id = self.fetch_data(query, list(item_data.values()))
 
         if not item_id.empty:
-            self.link_item_suppliers(item_id.iloc[0, 0], supplier_ids)
-            return item_id.iloc[0, 0]
+            **item_id_int = int(item_id.iloc[0, 0])  # ✅ Convert numpy.int64 → Python int**
+            self.link_item_suppliers(item_id_int, supplier_ids)
+            return item_id_int
         return None
 
     def link_item_suppliers(self, item_id, supplier_ids):
         """Link an item to multiple suppliers in the ItemSupplier table."""
         for supplier_id in supplier_ids:
             query = "INSERT INTO ItemSupplier (ItemID, SupplierID) VALUES (%s, %s)"
-            self.execute_command(query, (item_id, supplier_id))
+            self.execute_command(query, (item_id, int(supplier_id)))  # ✅ Convert supplier_id to int
 
     def update_item(self, item_id, updated_data):
         """Update item details."""
@@ -90,11 +91,11 @@ class DatabaseManager:
         query = f"UPDATE Item SET {columns}, UpdatedAt = CURRENT_TIMESTAMP WHERE ItemID = %s"
         self.execute_command(query, values)
 
-    def link_item_suppliers(self, item_id, supplier_ids):
-        """Link an item to multiple suppliers in the ItemSupplier table."""
-        item_id = int(item_id)  # ✅ Ensure item_id is a standard Python int
-        
+    def update_item_suppliers(self, item_id, supplier_ids):
+        """Update suppliers linked to an item (Remove old, add new)."""
+        delete_query = "DELETE FROM ItemSupplier WHERE ItemID = %s"
+        self.execute_command(delete_query, (item_id,))
+
         for supplier_id in supplier_ids:
-            supplier_id = int(supplier_id)  # ✅ Ensure supplier_id is also a Python int
-            query = "INSERT INTO ItemSupplier (ItemID, SupplierID) VALUES (%s, %s)"
-            self.execute_command(query, (item_id, supplier_id))
+            insert_query = "INSERT INTO ItemSupplier (ItemID, SupplierID) VALUES (%s, %s)"
+            self.execute_command(insert_query, (item_id, int(supplier_id)))  # ✅ Convert supplier_id to int
