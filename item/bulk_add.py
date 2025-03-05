@@ -58,10 +58,16 @@ def bulk_add_tab():
         try:
             df = pd.read_excel(uploaded_file)
 
-            # ✅ Ensure all required columns exist
+            # ✅ Debug Step: Show uploaded file columns
+            st.write("📂 Uploaded File Columns:", df.columns.tolist())
+
+            # ✅ Normalize column names to lowercase
+            df.columns = df.columns.str.lower()
+
+            # ✅ Required columns
             required_columns = [
-                "ItemNameEnglish", "ItemNameKurdish", "ClassCat", "DepartmentCat", "ShelfLife", 
-                "Threshold", "AverageRequired", "SupplierName"
+                "itemnameenglish", "itemnamekurdish", "classcat", "departmentcat", "shelflife", 
+                "threshold", "averagerequired", "suppliername"
             ]
             missing_columns = [col for col in required_columns if col not in df.columns]
             if missing_columns:
@@ -69,31 +75,31 @@ def bulk_add_tab():
                 return
 
             # ✅ Convert numeric fields to integers
-            df["ShelfLife"] = df["ShelfLife"].astype(int)
-            df["Threshold"] = df["Threshold"].astype(int)
-            df["AverageRequired"] = df["AverageRequired"].astype(int)
+            df["shelflife"] = df["shelflife"].astype(int)
+            df["threshold"] = df["threshold"].astype(int)
+            df["averagerequired"] = df["averagerequired"].astype(int)
 
             # ✅ Fetch supplier data & debug
             supplier_df = db.get_suppliers()
             st.write("🔍 Supplier Table Data:", supplier_df)
 
-            if supplier_df.empty or "SupplierName" not in supplier_df.columns:
-                st.error("❌ 'SupplierName' column not found in database. Please check table structure.")
+            if supplier_df.empty or "suppliername" not in supplier_df.columns:
+                st.error("❌ 'SupplierName' column not found in supplier table. Check database structure.")
                 return
 
             # ✅ Insert items into the database
             for _, row in df.iterrows():
-                item_data = row.drop("SupplierName").to_dict()  # ✅ Exclude supplier temporarily
-                supplier_name = row["SupplierName"]
+                item_data = row.drop("suppliername").to_dict()  # ✅ Exclude supplier temporarily
+                supplier_name = row["suppliername"]
 
                 # ✅ Get Supplier ID from name
-                supplier_id = supplier_df.loc[supplier_df["SupplierName"] == supplier_name, "SupplierID"]
+                supplier_match = supplier_df[supplier_df["suppliername"].str.lower() == supplier_name.lower()]
                 
-                if not supplier_id.empty:
-                    supplier_id = supplier_id.iloc[0]
+                if not supplier_match.empty:
+                    supplier_id = supplier_match.iloc[0]["supplierid"]
                     db.add_item(item_data, [supplier_id])  # ✅ Link item to supplier
                 else:
-                    st.warning(f"⚠️ Supplier '{supplier_name}' not found. Item '{row['ItemNameEnglish']}' was not added.")
+                    st.warning(f"⚠️ Supplier '{supplier_name}' not found. Item '{row['itemnameenglish']}' was not added.")
 
             st.success("✅ Items added successfully!")
 
