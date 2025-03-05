@@ -73,17 +73,18 @@ def bulk_add_tab():
             df["Threshold"] = df["Threshold"].astype(int)
             df["AverageRequired"] = df["AverageRequired"].astype(int)
 
-            # ✅ Fetch supplier data
+            # ✅ Fetch supplier data & debug
             supplier_df = db.get_suppliers()
+            st.write("🔍 Supplier Table Data:", supplier_df)
+
+            if supplier_df.empty or "SupplierName" not in supplier_df.columns:
+                st.error("❌ 'SupplierName' column not found in database. Please check table structure.")
+                return
 
             # ✅ Insert items into the database
             for _, row in df.iterrows():
                 item_data = row.drop("SupplierName").to_dict()  # ✅ Exclude supplier temporarily
                 supplier_name = row["SupplierName"]
-
-                if "SupplierName" not in supplier_df.columns:
-                    st.error("❌ 'SupplierName' column not found in database. Please check table structure.")
-                    return
 
                 # ✅ Get Supplier ID from name
                 supplier_id = supplier_df.loc[supplier_df["SupplierName"] == supplier_name, "SupplierID"]
