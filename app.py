@@ -12,7 +12,7 @@ def main():
 
     if page == "Home":
         home.home()
-    elif page == "Add Item":
+    elif page == "Item":
         mainitem.item_page()
     elif page == "Receive Items":
         receive_items.receive_items()  # ✅ Call the new function
