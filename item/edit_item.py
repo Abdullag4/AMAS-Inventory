@@ -1,60 +1,66 @@
 import streamlit as st
-import psycopg2
-import pandas as pd
+from db_handler import DatabaseManager
 
-class DatabaseManager:
-    """Handles all database interactions in a structured and modular way."""
+db = DatabaseManager()  # ✅ Create a single DB instance
 
-    def __init__(self):
-        """Initialize database connection."""
-        self.dsn = st.secrets["neon"]["dsn"]
+def add_item_tab():
+    """Tab for adding a new item to the database with supplier selection."""
+    st.header("➕ Add New Item")
 
-    def get_connection(self):
-        """Create a new database connection."""
-        try:
-            return psycopg2.connect(self.dsn)
-        except Exception as e:
-            st.error(f"Database connection failed: {e}")
-            return None
+    # ✅ Define item fields dynamically
+    item_fields = {
+        "ItemNameEnglish": "Item Name (English) *",
+        "ItemNameKurdish": "Item Name (Kurdish)",
+        "ClassCat": "Class Category *",
+        "DepartmentCat": "Department Category *",
+        "SectionCat": "Section Category",
+        "FamilyCat": "Family Category",
+        "SubFamilyCat": "Sub-Family Category",
+        "ShelfLife": "Shelf Life (days) *",
+        "OriginCountry": "Origin Country",
+        "Manufacturer": "Manufacturer",
+        "Brand": "Brand",
+        "Barcode": "Barcode",
+        "UnitType": "Unit Type",
+        "Packaging": "Packaging",
+        "ItemPicture": "Item Picture URL",
+        "Threshold": "Minimum Stock Threshold *",
+        "AverageRequired": "Average Stock Requirement *"
+    }
 
-    def fetch_data(self, query, params=None):
-        """Execute a SELECT query and return results as a Pandas DataFrame."""
-        conn = self.get_connection()
-        if conn:
-            with conn.cursor() as cur:
-                cur.execute(query, params or ())
-                rows = cur.fetchall()
-                columns = [desc[0] for desc in cur.description]
-            conn.close()
-            return pd.DataFrame(rows, columns=columns) if rows else pd.DataFrame()
-        return pd.DataFrame()
+    # ✅ Generate input fields dynamically
+    item_data = {}
+    for key, label in item_fields.items():
+        if key in ["ShelfLife", "Threshold", "AverageRequired"]:
+            item_data[key] = st.number_input(label, min_value=0, step=1)
+        else:
+            item_data[key] = st.text_input(label)
 
-    def execute_command(self, query, params=None):
-        """Execute INSERT, UPDATE, DELETE queries (No Return)."""
-        conn = self.get_connection()
-        if conn:
-            with conn.cursor() as cur:
-                cur.execute(query, params or ())
-                conn.commit()
-            conn.close()
+    # ✅ Fetch and Debug Supplier Data
+    suppliers_df = db.get_suppliers()
+    
+    if not suppliers_df.empty and "SupplierName" in suppliers_df.columns:
+        supplier_options = dict(zip(suppliers_df["SupplierName"], suppliers_df["SupplierID"]))  
+        selected_supplier_names = st.multiselect("Select Supplier(s) *", list(supplier_options.keys()))
 
-    def get_items(self):
-        """Retrieve all items for editing."""
-        query = "SELECT * FROM Item"
-        return self.fetch_data(query)
+        # ✅ Convert selected names to supplier IDs
+        selected_supplier_ids = [supplier_options[name] for name in selected_supplier_names]
+    else:
+        st.warning("⚠️ No suppliers available or missing SupplierName column in the database.")
+        selected_supplier_ids = []
 
-    def update_item(self, item_id, updated_data):
-        """Update item details dynamically."""
-        if not updated_data:
-            return False  # No data to update
-
-        columns = ", ".join([f"{key} = %s" for key in updated_data.keys()])
-        values = list(updated_data.values()) + [item_id]
-
-        query = f"""
-        UPDATE Item 
-        SET {columns}, UpdatedAt = CURRENT_TIMESTAMP
-        WHERE ItemID = %s
-        """
-        self.execute_command(query, values)
-        return True  # Update successful
+    # ✅ Handle Item Submission
+    if st.button("Add Item"):
+        required_fields = ["ItemNameEnglish", "ClassCat", "DepartmentCat", "ShelfLife", "Threshold", "AverageRequired"]
+        if any(not item_data[field] for field in required_fields):
+            st.error("❌ Please fill in all required fields before adding the item.")
+            return
+        
+        if not selected_supplier_ids:
+            st.error("❌ Please select at least one supplier.")
+            return
+        
+        # ✅ Add the item and link suppliers
+        item_id = db.add_item(item_data, selected_supplier_ids)
+        if item_id:
+            st.success("✅ Item added successfully and linked to suppliers!")
