@@ -50,6 +50,11 @@ class DatabaseManager:
             return rows
         return []
 
+    def get_suppliers(self):
+        """Retrieve all suppliers from the database."""
+        query = "SELECT SupplierID, SupplierName FROM Supplier"
+        return self.fetch_data(query)
+
     def get_items(self):
         """Retrieve all items for editing."""
         query = """
