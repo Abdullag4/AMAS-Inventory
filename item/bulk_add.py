@@ -88,15 +88,26 @@ def bulk_add_tab():
                 st.error("❌ 'SupplierName' column not found in supplier table. Check database structure.")
                 return
 
+            # ✅ Fetch existing item names to prevent duplicates
+            existing_items_df = db.get_items()
+            existing_item_names = set(existing_items_df["itemnameenglish"].str.lower()) if not existing_items_df.empty else set()
+
             # ✅ Create a set of available supplier names (for fast lookup)
             existing_suppliers = set(supplier_df["suppliername"].str.lower())
 
             # ✅ Insert items into the database
             items_added = 0
             missing_suppliers = set()  # ✅ Track missing suppliers
+            duplicate_items = set()  # ✅ Track duplicate items
 
             for _, row in df.iterrows():
+                item_name = row["itemnameenglish"].strip().lower()  # ✅ Normalize case & spaces
                 supplier_name = row["suppliername"].strip().lower()  # ✅ Normalize case & spaces
+
+                # ✅ Check if item already exists
+                if item_name in existing_item_names:
+                    duplicate_items.add(row["itemnameenglish"])
+                    continue  # ✅ Skip duplicate items
 
                 # ✅ Check if supplier exists
                 if supplier_name not in existing_suppliers:
@@ -124,6 +135,10 @@ def bulk_add_tab():
             # ✅ Warning for missing suppliers
             if missing_suppliers:
                 st.warning(f"⚠️ The following suppliers were not found in the database, so their items were not added: {', '.join(missing_suppliers)}")
+
+            # ✅ Warning for duplicate items
+            if duplicate_items:
+                st.warning(f"⚠️ The following items already exist and were not added again: {', '.join(duplicate_items)}")
 
         except Exception as e:
             st.error(f"❌ Error processing file: {e}")
