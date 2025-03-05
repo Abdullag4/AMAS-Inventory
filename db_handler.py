@@ -38,6 +38,18 @@ class DatabaseManager:
                 conn.commit()
             conn.close()
 
+    def execute_command_returning(self, query, params=None):
+        """Execute an INSERT or UPDATE query and return affected rows."""
+        conn = self.get_connection()
+        result = None
+        if conn:
+            with conn.cursor() as cur:
+                cur.execute(query, params or ())
+                result = cur.fetchone()  # ✅ Fetch generated ID
+                conn.commit()
+            conn.close()
+        return result
+
     def get_items(self):
         """Retrieve all items."""
         query = "SELECT * FROM Item"
@@ -62,17 +74,17 @@ class DatabaseManager:
         """Insert a new item and link it to suppliers."""
         columns = ", ".join(item_data.keys())
         values_placeholders = ", ".join(["%s"] * len(item_data))
-        
+
         query = f"""
         INSERT INTO Item ({columns}, CreatedAt, UpdatedAt)
         VALUES ({values_placeholders}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         RETURNING ItemID
         """
 
-        item_id = self.fetch_data(query, list(item_data.values()))
+        item_id = self.execute_command_returning(query, list(item_data.values()))
 
-        if not item_id.empty:
-            item_id_int = int(item_id.iloc[0, 0])  # ✅ Convert numpy.int64 → Python int**
+        if item_id:
+            item_id_int = int(item_id[0])  # ✅ Convert tuple result to int
             self.link_item_suppliers(item_id_int, supplier_ids)
             return item_id_int
         return None
@@ -81,7 +93,7 @@ class DatabaseManager:
         """Link an item to multiple suppliers in the ItemSupplier table."""
         for supplier_id in supplier_ids:
             query = "INSERT INTO ItemSupplier (ItemID, SupplierID) VALUES (%s, %s)"
-            self.execute_command(query, (item_id, int(supplier_id)))  # ✅ Convert supplier_id to int
+            self.execute_command(query, (item_id, supplier_id))  # ✅ No int conversion needed
 
     def update_item(self, item_id, updated_data):
         """Update item details."""
@@ -98,4 +110,4 @@ class DatabaseManager:
 
         for supplier_id in supplier_ids:
             insert_query = "INSERT INTO ItemSupplier (ItemID, SupplierID) VALUES (%s, %s)"
-            self.execute_command(insert_query, (item_id, int(supplier_id)))  # ✅ Convert supplier_id to int
+            self.execute_command(insert_query, (item_id, supplier_id))
