@@ -28,7 +28,7 @@ class DatabaseManager:
             conn.close()
             return pd.DataFrame(rows, columns=columns) if rows else pd.DataFrame()
         return pd.DataFrame()
-
+        
     def execute_command(self, query, params=None):
         """Execute INSERT, UPDATE, DELETE queries (No Return)."""
         conn = self.get_connection()
@@ -51,34 +51,42 @@ class DatabaseManager:
         return []
 
     def get_suppliers(self):
-        """Retrieve all suppliers from the database."""
-        query = "SELECT SupplierID, SupplierName FROM Supplier"
+        """Retrieve all supplier records."""
+        query = "SELECT supplierid, suppliername FROM supplier"
         return self.fetch_data(query)
 
-    def get_items(self):
-        """Retrieve all items for editing."""
-        query = """
-        SELECT ItemID, ItemNameEnglish, ClassCat, DepartmentCat, SectionCat, FamilyCat, 
-               SubFamilyCat, ShelfLife, OriginCountry, Manufacturer, Brand, Barcode, 
-               UnitType, Packaging, Threshold, AverageRequired 
-        FROM Item
+    def add_item(self, item_data, supplier_ids):
+        """Insert a new item and link it to suppliers."""
+        columns = ", ".join(item_data.keys())  # Convert dict keys to column names
+        values_placeholders = ", ".join(["%s"] * len(item_data))  # Create "%s, %s, %s..."
+        
+        query = f"""
+        INSERT INTO item ({columns}, createdat, updatedat)
+        VALUES ({values_placeholders}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING itemid
         """
-        return self.fetch_data(query)
 
-    def update_item(self, item_id, updated_data):
-        """Update item details based on provided data."""
-        if not updated_data:
-            st.warning("⚠️ No changes detected. Nothing to update.")
+        item_id = self.execute_command_returning(query, list(item_data.values()))
+
+        if item_id:
+            self.link_item_suppliers(item_id[0][0], supplier_ids)
+            return item_id[0][0]
+        return None
+
+    def link_item_suppliers(self, item_id, supplier_ids):
+        """Link item to multiple suppliers in the ItemSupplier table."""
+        if not supplier_ids:
             return
-
-        set_clause = ", ".join([f"{key} = %s" for key in updated_data.keys()])
-        values = list(updated_data.values()) + [item_id]
+        
+        values = ", ".join(["(%s, %s)"] * len(supplier_ids))
+        params = []
+        for supplier_id in supplier_ids:
+            params.extend([item_id, supplier_id])
 
         query = f"""
-        UPDATE Item
-        SET {set_clause}, UpdatedAt = CURRENT_TIMESTAMP
-        WHERE ItemID = %s
+        INSERT INTO itemsupplier (itemid, supplierid) 
+        VALUES {values} 
+        ON CONFLICT DO NOTHING
         """
-
-        self.execute_command(query, values)
-        st.success("✅ Item updated successfully!")
+        
+        self.execute_command(query, params)
