@@ -8,7 +8,7 @@ st.set_page_config(page_title="Inventory Management System", layout="wide")
 def main():
     """Main entry point for the Inventory Management app."""
     st.sidebar.title("Navigation")
-    page = st.sidebar.radio("Go to", ["Home", "Add Item", "Receive Items"])
+    page = st.sidebar.radio("Go to", ["Home", "Item", "Receive Items"])
 
     if page == "Home":
         home.home()
