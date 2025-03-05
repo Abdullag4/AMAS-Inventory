@@ -50,6 +50,34 @@ class DatabaseManager:
             return rows
         return []
 
+    def get_items(self):
+        """Retrieve all items for editing."""
+        query = """
+        SELECT itemid, itemnameenglish, classcat, departmentcat, sectioncat, 
+               familycat, subfamilycat, shelflife, origincountry, manufacturer, 
+               brand, barcode, unittype, packaging, threshold, averagerequired, 
+               itempicture, createdat, updatedat 
+        FROM item
+        """
+        return self.fetch_data(query)
+
+    def update_item(self, item_id, updated_data):
+        """Update item details in the database."""
+        if not updated_data:
+            st.warning("⚠️ No changes made.")
+            return
+        
+        set_clause = ", ".join(f"{col} = %s" for col in updated_data.keys())
+        query = f"""
+        UPDATE item
+        SET {set_clause}, updatedat = CURRENT_TIMESTAMP
+        WHERE itemid = %s
+        """
+        
+        params = list(updated_data.values()) + [item_id]
+        self.execute_command(query, params)
+        st.success("✅ Item updated successfully!")
+
     def get_suppliers(self):
         """Retrieve all supplier records."""
         query = "SELECT supplierid, suppliername FROM supplier"
