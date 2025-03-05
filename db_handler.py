@@ -72,7 +72,7 @@ class DatabaseManager:
         item_id = self.fetch_data(query, list(item_data.values()))
 
         if not item_id.empty:
-            **item_id_int = int(item_id.iloc[0, 0])  # ✅ Convert numpy.int64 → Python int**
+            item_id_int = int(item_id.iloc[0, 0])  # ✅ Convert numpy.int64 → Python int**
             self.link_item_suppliers(item_id_int, supplier_ids)
             return item_id_int
         return None
