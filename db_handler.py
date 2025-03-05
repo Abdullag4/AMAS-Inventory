@@ -93,8 +93,8 @@ class DatabaseManager:
     def link_item_suppliers(self, item_id, supplier_ids):
         """Link an item to multiple suppliers in the ItemSupplier table."""
         item_id = int(item_id)  # ✅ Ensure item_id is a standard Python int
-    
-    for supplier_id in supplier_ids:
-        supplier_id = int(supplier_id)  # ✅ Ensure supplier_id is also a Python int
-        query = "INSERT INTO ItemSupplier (ItemID, SupplierID) VALUES (%s, %s)"
-        self.execute_command(query, (item_id, supplier_id))
+        
+        for supplier_id in supplier_ids:
+            supplier_id = int(supplier_id)  # ✅ Ensure supplier_id is also a Python int
+            query = "INSERT INTO ItemSupplier (ItemID, SupplierID) VALUES (%s, %s)"
+            self.execute_command(query, (item_id, supplier_id))
