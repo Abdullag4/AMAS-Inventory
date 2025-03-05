@@ -58,6 +58,30 @@ class DatabaseManager:
         result = self.fetch_data(query, (item_id,))
         return result["suppliername"].tolist() if not result.empty else []
 
+    def add_item(self, item_data, supplier_ids):
+        """Insert a new item into the Item table and link suppliers."""
+        columns = ", ".join(item_data.keys())
+        values_placeholders = ", ".join(["%s"] * len(item_data))
+
+        query = f"""
+        INSERT INTO Item ({columns}, CreatedAt, UpdatedAt)
+        VALUES ({values_placeholders}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING ItemID
+        """
+
+        item_id = self.fetch_data(query, list(item_data.values()))
+
+        if not item_id.empty:
+            self.link_item_suppliers(item_id.iloc[0, 0], supplier_ids)
+            return item_id.iloc[0, 0]
+        return None
+
+    def link_item_suppliers(self, item_id, supplier_ids):
+        """Link an item to multiple suppliers in the ItemSupplier table."""
+        for supplier_id in supplier_ids:
+            query = "INSERT INTO ItemSupplier (ItemID, SupplierID) VALUES (%s, %s)"
+            self.execute_command(query, (item_id, supplier_id))
+
     def update_item(self, item_id, updated_data):
         """Update item details."""
         columns = ", ".join(f"{col} = %s" for col in updated_data.keys())
@@ -68,11 +92,9 @@ class DatabaseManager:
 
     def update_item_suppliers(self, item_id, supplier_ids):
         """Update suppliers linked to an item (Remove old, add new)."""
-        # ✅ Remove existing suppliers
         delete_query = "DELETE FROM ItemSupplier WHERE ItemID = %s"
         self.execute_command(delete_query, (item_id,))
 
-        # ✅ Insert new suppliers
         for supplier_id in supplier_ids:
             insert_query = "INSERT INTO ItemSupplier (ItemID, SupplierID) VALUES (%s, %s)"
             self.execute_command(insert_query, (item_id, supplier_id))
