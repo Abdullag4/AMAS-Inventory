@@ -6,16 +6,24 @@ from db_handler import DatabaseManager
 db = DatabaseManager()  # ✅ Database instance
 
 def generate_example_excel():
-    """Generate an example Excel file for bulk item addition."""
+    """Generate an example Excel file with all required columns for bulk item addition."""
     sample_data = {
-        "ItemNameEnglish": ["Item 1", "Item 2"],
-        "ClassCat": ["Category A", "Category B"],
-        "DepartmentCat": ["Department X", "Department Y"],
-        "ShelfLife": [365, 180],
-        "Threshold": [50, 30],
-        "AverageRequired": [200, 150],
-        "Manufacturer": ["Brand A", "Brand B"],
-        "Barcode": ["123456789", "987654321"],
+        "ItemNameEnglish": ["Paracetamol 500mg", "Ibuprofen 200mg"],
+        "ClassCat": ["Pain Reliever", "Anti-Inflammatory"],
+        "DepartmentCat": ["Pharmacy", "Pharmacy"],
+        "SectionCat": ["OTC", "OTC"],
+        "FamilyCat": ["Analgesics", "Analgesics"],
+        "SubFamilyCat": ["Tablets", "Tablets"],
+        "ShelfLife": [730, 365],  # Days
+        "Threshold": [100, 50],  # Minimum stock before reorder
+        "AverageRequired": [500, 300],  # Expected stock level
+        "OriginCountry": ["USA", "Germany"],
+        "Manufacturer": ["Company A", "Company B"],
+        "Brand": ["Brand X", "Brand Y"],
+        "Barcode": ["1234567890123", "9876543210987"],
+        "UnitType": ["Box", "Pack"],
+        "Packaging": ["Blister", "Bottle"],
+        "SupplierName": ["Supplier A", "Supplier B"]  # ✅ NEW: Suppliers must be added
     }
 
     df = pd.DataFrame(sample_data)
@@ -49,22 +57,35 @@ def bulk_add_tab():
         try:
             df = pd.read_excel(uploaded_file)
 
-            # ✅ Ensure required columns exist
-            required_columns = ["ItemNameEnglish", "ClassCat", "DepartmentCat", "ShelfLife", "Threshold", "AverageRequired"]
+            # ✅ Ensure all required columns exist
+            required_columns = [
+                "ItemNameEnglish", "ClassCat", "DepartmentCat", "ShelfLife", 
+                "Threshold", "AverageRequired", "SupplierName"
+            ]
             missing_columns = [col for col in required_columns if col not in df.columns]
             if missing_columns:
                 st.error(f"❌ Missing required columns: {', '.join(missing_columns)}")
                 return
 
-            # ✅ Convert shelf life & numeric columns to integers
+            # ✅ Convert numeric fields to integers
             df["ShelfLife"] = df["ShelfLife"].astype(int)
             df["Threshold"] = df["Threshold"].astype(int)
             df["AverageRequired"] = df["AverageRequired"].astype(int)
 
-            # ✅ Insert items one by one
+            # ✅ Insert items into the database
             for _, row in df.iterrows():
-                item_data = row.to_dict()
-                db.add_item(item_data, [])  # No supplier linking in bulk upload
+                item_data = row.drop("SupplierName").to_dict()  # ✅ Exclude supplier temporarily
+                supplier_name = row["SupplierName"]
+
+                # ✅ Get Supplier ID from name
+                supplier_df = db.get_suppliers()
+                supplier_id = supplier_df.loc[supplier_df["SupplierName"] == supplier_name, "SupplierID"]
+                
+                if not supplier_id.empty:
+                    supplier_id = supplier_id.iloc[0]
+                    db.add_item(item_data, [supplier_id])  # ✅ Link item to supplier
+                else:
+                    st.warning(f"⚠️ Supplier '{supplier_name}' not found. Item '{row['ItemNameEnglish']}' was not added.")
 
             st.success("✅ Items added successfully!")
 
