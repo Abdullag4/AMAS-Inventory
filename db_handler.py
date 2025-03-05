@@ -39,7 +39,7 @@ class DatabaseManager:
             conn.close()
 
     def execute_command_returning(self, query, params=None):
-        """Execute INSERT and return the inserted row(s)."""
+        """Execute an INSERT or UPDATE query and return affected rows."""
         conn = self.get_connection()
         if conn:
             with conn.cursor() as cur:
@@ -50,57 +50,30 @@ class DatabaseManager:
             return rows
         return []
 
-    def get_suppliers(self):
-        """Retrieve all suppliers and rename columns for consistency."""
-        query = "SELECT supplierid, suppliername FROM supplier"
-        df = self.fetch_data(query)
-
-        # ✅ Rename columns to expected names
-        df.columns = df.columns.str.lower()
-        df.rename(columns={"supplierid": "SupplierID", "suppliername": "SupplierName"}, inplace=True)
-
-        if df.empty:
-            st.warning("⚠️ No suppliers found in the database!")
-
-        return df
-
     def get_items(self):
         """Retrieve all items for editing."""
         query = """
-        SELECT itemid, itemnameenglish, classcat, departmentcat, sectioncat, 
-               familycat, subfamilycat, shelflife, origincountry, manufacturer, 
-               brand, barcode, unittype, packaging, itempicture, threshold, 
-               averagerequired
-        FROM item
+        SELECT ItemID, ItemNameEnglish, ClassCat, DepartmentCat, SectionCat, FamilyCat, 
+               SubFamilyCat, ShelfLife, OriginCountry, Manufacturer, Brand, Barcode, 
+               UnitType, Packaging, Threshold, AverageRequired 
+        FROM Item
         """
-        df = self.fetch_data(query)
-        df.columns = df.columns.str.lower()
-        return df
+        return self.fetch_data(query)
 
-    def add_item(self, item_data, supplier_ids):
-        """Insert a new item into the Item table and link suppliers in ItemSupplier table."""
-        columns = ", ".join(item_data.keys())
-        values_placeholders = ", ".join(["%s"] * len(item_data))
+    def update_item(self, item_id, updated_data):
+        """Update item details based on provided data."""
+        if not updated_data:
+            st.warning("⚠️ No changes detected. Nothing to update.")
+            return
+
+        set_clause = ", ".join([f"{key} = %s" for key in updated_data.keys()])
+        values = list(updated_data.values()) + [item_id]
 
         query = f"""
-        INSERT INTO Item ({columns}, CreatedAt, UpdatedAt)
-        VALUES ({values_placeholders}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        RETURNING ItemID
+        UPDATE Item
+        SET {set_clause}, UpdatedAt = CURRENT_TIMESTAMP
+        WHERE ItemID = %s
         """
-        
-        item_id = self.execute_command_returning(query, list(item_data.values()))
 
-        if item_id:
-            self.link_item_suppliers(item_id[0][0], supplier_ids)
-            return item_id[0][0]  # Return the newly added ItemID
-        return None
-
-    def link_item_suppliers(self, item_id, supplier_ids):
-        """Link the newly added item to selected suppliers."""
-        for supplier_id in supplier_ids:
-            query = """
-            INSERT INTO ItemSupplier (ItemID, SupplierID)
-            VALUES (%s, %s)
-            ON CONFLICT DO NOTHING
-            """
-            self.execute_command(query, (item_id, supplier_id))
+        self.execute_command(query, values)
+        st.success("✅ Item updated successfully!")
