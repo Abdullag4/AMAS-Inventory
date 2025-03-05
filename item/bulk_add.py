@@ -73,29 +73,34 @@ def bulk_add_tab():
             if missing_columns:
                 st.error(f"❌ Missing required columns: {', '.join(missing_columns)}")
                 return
+
+            # ✅ Convert numeric fields to Python int
+            for col in ["shelflife", "threshold", "averagerequired"]:
+                df[col] = df[col].astype(int).apply(lambda x: int(x))  # 🔥 Convert numpy.int64 → Python int
+
+            # ✅ Fetch supplier data & debug
+            supplier_df = db.get_suppliers()
+            st.write("🔍 Supplier Table Data:", supplier_df)
+
+            if supplier_df.empty or "suppliername" not in supplier_df.columns:
+                st.error("❌ 'SupplierName' column not found in supplier table. Check database structure.")
+                return
+
+            # ✅ Insert items into the database
+            for _, row in df.iterrows():
+                item_data = row.drop("suppliername").to_dict()  # ✅ Exclude supplier temporarily
+                supplier_name = row["suppliername"]
+
+                # ✅ Get Supplier ID from name
+                supplier_match = supplier_df[supplier_df["suppliername"].str.lower() == supplier_name.lower()]
                 
-                df["shelflife"] = df["shelflife"].astype(int)
-                df["threshold"] = df["threshold"].astype(int)
-                df["averagerequired"] = df["averagerequired"].astype(int)
-                
-                for _, row in df.iterrows():
-                    item_data = row.drop("suppliername").to_dict()  # ✅ Exclude supplier temporarily
-                    
-                    for key, value in item_data.items():
-                        if isinstance(value, (pd.Int64Dtype, int, float)):  
-                            item_data[key] = int(value)  # ✅ Convert numpy types to int
-                            
-                            supplier_name = row["suppliername"]
-                            
-                            supplier_match = supplier_df[supplier_df["suppliername"].str.lower() == supplier_name.lower()]
-                            
-                            if not supplier_match.empty:
-                                supplier_id = int(supplier_match.iloc[0]["supplierid"])  # ✅ Convert supplier ID to int
-                                db.add_item(item_data, [supplier_id])  # ✅ Link item to supplier
-                            
-                            else:
-                                st.warning(f"⚠️ Supplier '{supplier_name}' not found. Item '{row['itemnameenglish']}' was not added.")
-                                st.success("✅ Items added successfully!")
-        
+                if not supplier_match.empty:
+                    supplier_id = supplier_match.iloc[0]["supplierid"]
+                    db.add_item(item_data, [supplier_id])  # ✅ Link item to supplier
+                else:
+                    st.warning(f"⚠️ Supplier '{supplier_name}' not found. Item '{row['itemnameenglish']}' was not added.")
+
+            st.success("✅ Items added successfully!")
+
         except Exception as e:
             st.error(f"❌ Error processing file: {e}")
