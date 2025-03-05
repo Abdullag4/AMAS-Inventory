@@ -1,6 +1,6 @@
 import streamlit as st
 import home
-from item import itemadd
+from item import mainitem
 import receive_items  # ✅ Import new page
 
 st.set_page_config(page_title="Inventory Management System", layout="wide")
