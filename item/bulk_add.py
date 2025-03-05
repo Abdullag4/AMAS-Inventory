@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import io
 from db_handler import DatabaseManager
 
@@ -9,22 +10,22 @@ def generate_example_excel():
     """Generate an example Excel file with all required columns for bulk item addition."""
     sample_data = {
         "ItemNameEnglish": ["Paracetamol 500mg", "Ibuprofen 200mg"],
-        "ItemNameKurdish": ["پاراستامۆل ٥٠٠مگ", "ئەيبۆپڕۆفێن ٢٠٠مگ"],  # ✅ Kurdish name added
+        "ItemNameKurdish": ["پاراستامۆل ٥٠٠مگ", "ئەيبۆپڕۆفێن ٢٠٠مگ"],
         "ClassCat": ["Pain Reliever", "Anti-Inflammatory"],
         "DepartmentCat": ["Pharmacy", "Pharmacy"],
         "SectionCat": ["OTC", "OTC"],
         "FamilyCat": ["Analgesics", "Analgesics"],
         "SubFamilyCat": ["Tablets", "Tablets"],
-        "ShelfLife": [730, 365],  # Days
-        "Threshold": [100, 50],  # Minimum stock before reorder
-        "AverageRequired": [500, 300],  # Expected stock level
+        "ShelfLife": [730, 365],  
+        "Threshold": [100, 50],  
+        "AverageRequired": [500, 300],  
         "OriginCountry": ["USA", "Germany"],
         "Manufacturer": ["Company A", "Company B"],
         "Brand": ["Brand X", "Brand Y"],
         "Barcode": ["1234567890123", "9876543210987"],
         "UnitType": ["Box", "Pack"],
         "Packaging": ["Blister", "Bottle"],
-        "SupplierName": ["Supplier A", "Supplier B"]  # ✅ Supplier Name for mapping
+        "SupplierName": ["Supplier A", "Supplier B"]  
     }
 
     df = pd.DataFrame(sample_data)
@@ -74,9 +75,9 @@ def bulk_add_tab():
                 st.error(f"❌ Missing required columns: {', '.join(missing_columns)}")
                 return
 
-            # ✅ Convert numeric fields to Python int
+            # ✅ Convert numeric fields to Python integers
             for col in ["shelflife", "threshold", "averagerequired"]:
-                df[col] = df[col].astype(int).apply(lambda x: int(x))  # 🔥 Convert numpy.int64 → Python int
+                df[col] = df[col].astype(int)
 
             # ✅ Fetch supplier data & debug
             supplier_df = db.get_suppliers()
@@ -88,14 +89,19 @@ def bulk_add_tab():
 
             # ✅ Insert items into the database
             for _, row in df.iterrows():
-                item_data = row.drop("suppliername").to_dict()  # ✅ Exclude supplier temporarily
+                # ✅ Convert item data (skip "suppliername" column)
+                item_data = {
+                    key: int(value) if isinstance(value, (np.int64, float)) else value
+                    for key, value in row.items() if key != "suppliername"
+                }
+
                 supplier_name = row["suppliername"]
 
                 # ✅ Get Supplier ID from name
                 supplier_match = supplier_df[supplier_df["suppliername"].str.lower() == supplier_name.lower()]
                 
                 if not supplier_match.empty:
-                    supplier_id = supplier_match.iloc[0]["supplierid"]
+                    supplier_id = int(supplier_match.iloc[0]["supplierid"])  # ✅ Convert supplier_id to int
                     db.add_item(item_data, [supplier_id])  # ✅ Link item to supplier
                 else:
                     st.warning(f"⚠️ Supplier '{supplier_name}' not found. Item '{row['itemnameenglish']}' was not added.")
