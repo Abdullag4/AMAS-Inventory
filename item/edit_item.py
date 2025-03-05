@@ -1,44 +1,60 @@
 import streamlit as st
-from db_handler import DatabaseManager
+import psycopg2
+import pandas as pd
 
-db = DatabaseManager()  # ✅ Create a single DB instance
+class DatabaseManager:
+    """Handles all database interactions in a structured and modular way."""
 
-def edit_item_tab():
-    """Tab for editing existing items in the inventory."""
-    st.header("✏️ Edit Item Details")
+    def __init__(self):
+        """Initialize database connection."""
+        self.dsn = st.secrets["neon"]["dsn"]
 
-    # ✅ Fetch items
-    items_df = db.get_items()
+    def get_connection(self):
+        """Create a new database connection."""
+        try:
+            return psycopg2.connect(self.dsn)
+        except Exception as e:
+            st.error(f"Database connection failed: {e}")
+            return None
 
-    if items_df.empty:
-        st.warning("⚠️ No items available for editing.")
-        return
+    def fetch_data(self, query, params=None):
+        """Execute a SELECT query and return results as a Pandas DataFrame."""
+        conn = self.get_connection()
+        if conn:
+            with conn.cursor() as cur:
+                cur.execute(query, params or ())
+                rows = cur.fetchall()
+                columns = [desc[0] for desc in cur.description]
+            conn.close()
+            return pd.DataFrame(rows, columns=columns) if rows else pd.DataFrame()
+        return pd.DataFrame()
 
-    # ✅ Normalize column names to lowercase
-    items_df.columns = items_df.columns.str.lower()
+    def execute_command(self, query, params=None):
+        """Execute INSERT, UPDATE, DELETE queries (No Return)."""
+        conn = self.get_connection()
+        if conn:
+            with conn.cursor() as cur:
+                cur.execute(query, params or ())
+                conn.commit()
+            conn.close()
 
-    if "itemnameenglish" not in items_df.columns:
-        st.error("⚠️ 'ItemNameEnglish' column not found in database.")
-        st.stop()
+    def get_items(self):
+        """Retrieve all items for editing."""
+        query = "SELECT * FROM Item"
+        return self.fetch_data(query)
 
-    # ✅ Create dropdown options
-    item_options = dict(zip(items_df["itemnameenglish"], items_df["itemid"]))
-    
-    selected_item_name = st.selectbox("Select an item to edit", list(item_options.keys()))
-    selected_item_id = item_options[selected_item_name]
+    def update_item(self, item_id, updated_data):
+        """Update item details dynamically."""
+        if not updated_data:
+            return False  # No data to update
 
-    # ✅ Retrieve selected item details
-    selected_item = items_df[items_df["itemid"] == selected_item_id].iloc[0]
+        columns = ", ".join([f"{key} = %s" for key in updated_data.keys()])
+        values = list(updated_data.values()) + [item_id]
 
-    # ✅ Editable fields with unique keys
-    updated_data = {}
-    for col in selected_item.index:
-        if col not in ["itemid", "createdat", "updatedat"]:  # Prevent editing ID and timestamps
-            updated_data[col] = st.text_input(
-                col.replace("_", " ").title(), 
-                value=str(selected_item[col]), 
-                key=f"{col}_{selected_item_id}"  # ✅ Unique key to avoid duplicate element IDs
-            )
-
-    if st.button("Update Item"):
-        db.update_item(selected_item_id, updated_data)
+        query = f"""
+        UPDATE Item 
+        SET {columns}, UpdatedAt = CURRENT_TIMESTAMP
+        WHERE ItemID = %s
+        """
+        self.execute_command(query, values)
+        return True  # Update successful
