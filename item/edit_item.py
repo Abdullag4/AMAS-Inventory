@@ -26,7 +26,9 @@ def edit_item_tab():
     updated_data = {}
     for col in selected_item.index:
         if col not in ["itemid", "createdat", "updatedat"]:  # Prevent editing ID & timestamps
-            updated_data[col] = st.text_input(col.replace("_", " ").title(), value=str(selected_item[col]))
+            unique_key = f"{col}_{selected_item_id}"  # Create a unique key for each input
+            updated_data[col] = st.text_input(col.replace("_", " ").title(), selected_item[col], key=unique_key)
+
 
     if st.button("Update Item"):
         db.update_item(selected_item_id, updated_data)
