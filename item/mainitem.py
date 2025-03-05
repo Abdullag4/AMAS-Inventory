@@ -1,30 +1,23 @@
 import streamlit as st
-from db_handler import DatabaseManager
+from item.add_item import add_item_tab
+from item.bulk_add import bulk_add_tab
+from item.edit_item import edit_item_tab
+from item.dropdowns import manage_dropdowns_tab
 
-db = DatabaseManager()  # ✅ Create a single DB instance
+def item_page():
+    """Item management page with multiple tabs."""
+    st.title("📦 Item Management")
 
-def edit_item_tab():
-    """Page for editing existing items in the inventory."""
-    st.header("✏️ Edit Item Details")
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "➕ Add Item", "📂 Bulk Add", "✏️ Edit Item", "📋 Manage Dropdowns"
+    ])
 
-    # ✅ Fetch items
-    items_df = db.get_items()
+    with tab1:
+        add_item_tab()  # ✅ Handles adding new items
+    with tab2:
+        bulk_add_tab()  # ✅ Handles bulk item upload via Excel
+    with tab3:
+        edit_item_tab()  # ✅ Handles editing existing items
+    with tab4:
+        manage_dropdowns_tab()  # ✅ Handles managing dropdown lists
 
-    # ✅ Debugging step - show available columns
-    if items_df.empty:
-        st.warning("⚠️ No items available for editing.")
-        return
-
-    item_options = dict(zip(items_df["itemnameenglish"], items_df["itemid"]))
-    selected_item_name = st.selectbox("Select an item to edit", list(item_options.keys()))
-    selected_item_id = item_options[selected_item_name]
-
-    selected_item = items_df[items_df["itemid"] == selected_item_id].iloc[0]
-
-    updated_data = {}
-    for col in selected_item.index:
-        if col not in ["itemid", "createdat", "updatedat"]:  # Prevent editing of these fields
-            updated_data[col] = st.text_input(col.replace("_", " ").title(), selected_item[col], key=col)
-
-    if st.button("Update Item"):
-        db.update_item(selected_item_id, updated_data)
