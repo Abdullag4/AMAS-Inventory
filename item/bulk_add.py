@@ -55,7 +55,8 @@ def bulk_add_tab():
     # ✅ Upload section
     uploaded_file = st.file_uploader("📤 Upload Excel File", type=["xlsx"])
 
-    if uploaded_file:
+    # ✅ Add "Upload File" button
+    if uploaded_file and st.button("📤 Upload File"):
         try:
             df = pd.read_excel(uploaded_file)
 
