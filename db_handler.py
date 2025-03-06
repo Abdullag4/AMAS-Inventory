@@ -73,7 +73,15 @@ class DatabaseManager:
 
     # ───────────── Supplier Management ─────────────
     def get_suppliers(self):
-        return self.fetch_data("SELECT SupplierID, SupplierName FROM Supplier")
+        """
+        Retrieve all suppliers, ensuring columns are named 'SupplierID' and 'SupplierName'.
+        """
+        df = self.fetch_data("SELECT supplierid, suppliername FROM Supplier")
+
+        # ✅ Rename columns to match expected usage in code
+        if not df.empty:
+            df.columns = ["SupplierID", "SupplierName"]
+        return df
 
     # ───────────── Items & Linking ─────────────
     def get_items(self):
@@ -81,7 +89,7 @@ class DatabaseManager:
 
     def get_item_suppliers(self, item_id):
         query = """
-        SELECT s.SupplierName 
+        SELECT s.SupplierName
         FROM ItemSupplier isup
         JOIN Supplier s ON isup.SupplierID = s.SupplierID
         WHERE isup.ItemID = %s
@@ -123,4 +131,7 @@ class DatabaseManager:
     def update_item_suppliers(self, item_id, supplier_ids):
         self.execute_command("DELETE FROM ItemSupplier WHERE ItemID = %s", (item_id,))
         for supplier_id in supplier_ids:
-            self.execute_command("INSERT INTO ItemSupplier (ItemID, SupplierID) VALUES (%s, %s)", (item_id, supplier_id))
+            self.execute_command(
+                "INSERT INTO ItemSupplier (ItemID, SupplierID) VALUES (%s, %s)",
+                (item_id, supplier_id)
+            )
