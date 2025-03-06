@@ -66,12 +66,14 @@ class DatabaseManager:
     ########################
     def get_suppliers(self):
         """
-        Retrieve suppliers from 'Supplier' table and rename columns to lowercase.
-        => columns: supplierid, suppliername
+        Retrieve suppliers from the 'Supplier' table and rename
+        columns to exactly "supplierid" and "suppliername".
         """
         df = self.fetch_data("SELECT supplierid, suppliername FROM Supplier")
+
+        # Important: rename to ensure code can reference them as .loc[:, "suppliername"]
         if not df.empty:
-            df.columns = df.columns.str.lower()  # => ["supplierid", "suppliername"]
+            df.columns = ["supplierid", "suppliername"]
         return df
 
     ########################
@@ -102,11 +104,22 @@ class DatabaseManager:
         RETURNING ItemID
         """
 
-        new_id = self._execute_returning_one(query, list(item_data.values()))
+        conn = self.get_connection()
+        if not conn:
+            return None
+
+        new_id = None
+        with conn.cursor() as cur:
+            cur.execute(query, list(item_data.values()))
+            row = cur.fetchone()  # e.g. (31,)
+            conn.commit()
+            if row:
+                new_id = row[0]
+        conn.close()
+
         if new_id:
-            item_id = new_id
-            self.link_item_suppliers(item_id, supplier_ids)
-            return item_id
+            self.link_item_suppliers(new_id, supplier_ids)
+            return new_id
         return None
 
     def link_item_suppliers(self, item_id, supplier_ids):
@@ -125,32 +138,9 @@ class DatabaseManager:
         self.execute_command(query, vals)
 
     def update_item_suppliers(self, item_id, supplier_ids):
-        # Remove old
         self.execute_command("DELETE FROM ItemSupplier WHERE ItemID = %s", (item_id,))
-        # Add new
         for sid in supplier_ids:
             self.execute_command(
                 "INSERT INTO ItemSupplier (ItemID, SupplierID) VALUES (%s, %s)",
                 (item_id, sid)
             )
-
-    ########################
-    # Internal helper
-    ########################
-    def _execute_returning_one(self, query, params=None):
-        """
-        Executes an INSERT/UPDATE with RETURNING that expects exactly 1 row, e.g. (ItemID,).
-        Returns the integer ID or None.
-        """
-        conn = self.get_connection()
-        if not conn:
-            return None
-        result = None
-        with conn.cursor() as cur:
-            cur.execute(query, params or ())
-            row = cur.fetchone()  # e.g. (31,)
-            conn.commit()
-            if row:
-                result = row[0]  # e.g. 31
-        conn.close()
-        return result
