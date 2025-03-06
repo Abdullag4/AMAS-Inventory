@@ -3,56 +3,64 @@ from db_handler import DatabaseManager
 
 db = DatabaseManager()
 
-# Fixed sections to manage
-SECTIONS = [
-    "ClassCat",
-    "DepartmentCat",
-    "SectionCat",
-    "FamilyCat",
-    "SubFamilyCat",
-    "UnitType",
-    "Packaging",
-    "OriginCountry",
-    "Manufacturer",
-    "Brand"
-]
-
 def manage_dropdowns_tab():
-    """Tab to manage dropdown values for specific, fixed sections."""
-    st.header("🔽 Manage Dropdowns")
+    st.subheader("🛠️ Manage Dropdown Values")
 
-    selected_section = st.selectbox("Select a Section to manage", [""] + SECTIONS)
+    sections = [
+        "ClassCat", "DepartmentCat", "SectionCat", "FamilyCat", "SubFamilyCat",
+        "UnitType", "Packaging", "OriginCountry", "Manufacturer", "Brand"
+    ]
 
-    if not selected_section:
-        st.warning("⚠️ Please choose a section from the list.")
-        return
+    selected_section = st.selectbox("Select Dropdown Section", sections)
 
-    # Fetch existing values from the Dropdowns table
-    dropdown_values = db.get_dropdown_values(selected_section)
-    st.subheader(f"📋 Values in '{selected_section}'")
+    # Display current values
+    current_values = db.get_dropdown_values(selected_section)
+    st.write("**Current Values:**")
+    st.write(current_values)
 
-    if dropdown_values:
-        st.write(dropdown_values)
-    else:
-        st.info("No values available for this section.")
+    # Bulk add new values
+    st.write("---")
+    st.write("**➕ Bulk Add Values:**")
+    new_values_str = st.text_area(
+        "Enter values to add (one per line)", 
+        key=f"bulk_add_{selected_section}"
+    )
 
-    # Add a new value
-    new_value = st.text_input(f"Add new value to '{selected_section}'").strip()
-    if st.button("➕ Add Value"):
-        if new_value:
-            db.add_dropdown_value(selected_section, new_value)
-            st.success(f"✅ '{new_value}' added to '{selected_section}'")
-            st.info("Refresh or switch tabs to see the updated values.")
+    if st.button("Add Values"):
+        new_values = [val.strip() for val in new_values_str.splitlines() if val.strip()]
+        if new_values:
+            added = []
+            skipped = []
+            for val in new_values:
+                if val not in current_values:
+                    db.add_dropdown_value(selected_section, val)
+                    added.append(val)
+                else:
+                    skipped.append(val)
+
+            if added:
+                st.success(f"✅ Added: {', '.join(added)}")
+            if skipped:
+                st.warning(f"⚠️ Already existed (skipped): {', '.join(skipped)}")
+            st.rerun()
         else:
-            st.error("❌ Value cannot be empty!")
+            st.error("❌ Please enter at least one value.")
 
-    # Delete an existing value
-    if dropdown_values:
-        value_to_delete = st.selectbox("Select a value to delete", [""] + dropdown_values)
-        if st.button("🗑️ Delete Selected Value"):
-            if value_to_delete:
-                db.delete_dropdown_value(selected_section, value_to_delete)
-                st.success(f"✅ '{value_to_delete}' deleted from '{selected_section}'")
-                st.info("Refresh or switch tabs to see the updated values.")
-            else:
-                st.error("❌ Please select a value to delete!")
+    # Bulk delete existing values
+    st.write("---")
+    st.write("**🗑️ Bulk Delete Values:**")
+
+    values_to_delete = st.multiselect(
+        "Select values to delete",
+        options=current_values,
+        key=f"bulk_delete_{selected_section}"
+    )
+
+    if st.button("Delete Selected Values"):
+        if values_to_delete:
+            for val in values_to_delete:
+                db.delete_dropdown_value(selected_section, val)
+            st.success(f"✅ Deleted: {', '.join(values_to_delete)}")
+            st.rerun()
+        else:
+            st.error("❌ Please select at least one value to delete.")
