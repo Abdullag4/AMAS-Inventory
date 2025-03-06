@@ -37,9 +37,19 @@ class DatabaseManager:
             conn.commit()
         conn.close()
 
-    ########################
-    # Dropdown Management
-    ########################
+    def execute_command_returning(self, query, params=None):
+        conn = self.get_connection()
+        if not conn:
+            return None
+        result = None
+        with conn.cursor() as cur:
+            cur.execute(query, params or ())
+            result = cur.fetchone()
+            conn.commit()
+        conn.close()
+        return result
+
+    # ─────────── Dropdown Management ───────────
     def get_all_sections(self):
         df = self.fetch_data("SELECT DISTINCT section FROM Dropdowns")
         return df["section"].tolist() if not df.empty else []
@@ -61,39 +71,23 @@ class DatabaseManager:
         query = "DELETE FROM Dropdowns WHERE section = %s AND value = %s"
         self.execute_command(query, (section, value))
 
-    ########################
-    # Supplier Management
-    ########################
+    # ───────────── Supplier Management ─────────────
     def get_suppliers(self):
-        """
-        Retrieve suppliers from the 'Supplier' table and rename
-        columns to exactly "supplierid" and "suppliername".
-        """
-        df = self.fetch_data("SELECT supplierid, suppliername FROM Supplier")
+        return self.fetch_data("SELECT SupplierID, SupplierName FROM Supplier")
 
-        # Important: rename to ensure code can reference them as .loc[:, "suppliername"]
-        if not df.empty:
-            df.columns = ["supplierid", "suppliername"]
-        return df
-
-    ########################
-    # Items & Linking
-    ########################
+    # ───────────── Items & Linking ─────────────
     def get_items(self):
         return self.fetch_data("SELECT * FROM Item")
 
     def get_item_suppliers(self, item_id):
         query = """
-        SELECT s.SupplierName
+        SELECT s.SupplierName 
         FROM ItemSupplier isup
         JOIN Supplier s ON isup.SupplierID = s.SupplierID
         WHERE isup.ItemID = %s
         """
         df = self.fetch_data(query, (item_id,))
-        if not df.empty:
-            df.columns = df.columns.str.lower()  # => ["suppliername"]
-            return df["suppliername"].tolist()
-        return []
+        return df["suppliername"].tolist() if not df.empty else []
 
     def add_item(self, item_data, supplier_ids):
         cols = ", ".join(item_data.keys())
@@ -104,28 +98,17 @@ class DatabaseManager:
         RETURNING ItemID
         """
 
-        conn = self.get_connection()
-        if not conn:
-            return None
-
-        new_id = None
-        with conn.cursor() as cur:
-            cur.execute(query, list(item_data.values()))
-            row = cur.fetchone()  # e.g. (31,)
-            conn.commit()
-            if row:
-                new_id = row[0]
-        conn.close()
-
+        new_id = self.execute_command_returning(query, list(item_data.values()))
         if new_id:
-            self.link_item_suppliers(new_id, supplier_ids)
-            return new_id
+            item_id = new_id[0]
+            self.link_item_suppliers(item_id, supplier_ids)
+            return item_id
         return None
 
     def link_item_suppliers(self, item_id, supplier_ids):
-        for sid in supplier_ids:
+        for supplier_id in supplier_ids:
             query = "INSERT INTO ItemSupplier (ItemID, SupplierID) VALUES (%s, %s)"
-            self.execute_command(query, (item_id, sid))
+            self.execute_command(query, (item_id, supplier_id))
 
     def update_item(self, item_id, updated_data):
         if not updated_data:
@@ -139,8 +122,5 @@ class DatabaseManager:
 
     def update_item_suppliers(self, item_id, supplier_ids):
         self.execute_command("DELETE FROM ItemSupplier WHERE ItemID = %s", (item_id,))
-        for sid in supplier_ids:
-            self.execute_command(
-                "INSERT INTO ItemSupplier (ItemID, SupplierID) VALUES (%s, %s)",
-                (item_id, sid)
-            )
+        for supplier_id in supplier_ids:
+            self.execute_command("INSERT INTO ItemSupplier (ItemID, SupplierID) VALUES (%s, %s)", (item_id, supplier_id))
