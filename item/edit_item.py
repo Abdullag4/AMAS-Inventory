@@ -11,9 +11,7 @@ def edit_item_tab():
         st.warning("⚠️ No items available for editing.")
         return
 
-    # For clarity: let's rename columns to lowercase
     items_df.columns = items_df.columns.str.lower()
-
     if "itemnameenglish" not in items_df.columns:
         st.error("❌ 'ItemNameEnglish' column not found in 'Item' table.")
         return
@@ -22,6 +20,7 @@ def edit_item_tab():
     selected_item_name = st.selectbox("Select an item to edit", list(item_options.keys()))
     selected_item_id = item_options[selected_item_name]
 
+    # Get the row for the selected item
     selected_item = items_df[items_df["itemid"] == selected_item_id].iloc[0]
 
     # Editable fields
@@ -33,13 +32,15 @@ def edit_item_tab():
     # Supplier multi-select
     suppliers_df = db.get_suppliers()
     if not suppliers_df.empty:
-        # => columns = ["supplierid", "suppliername"]
+        # => columns are: ["supplierid", "suppliername"]
         supplier_names = suppliers_df["suppliername"].tolist()
-        # get existing supplier names for this item
+
+        # existing suppliers for this item
         linked_suppliers = db.get_item_suppliers(selected_item_id)
         # multi-select with pre-selected suppliers
         selected_suppliers = st.multiselect("Edit Suppliers", supplier_names, default=linked_suppliers)
 
+        # map selected supplier names -> supplier IDs
         selected_supplier_ids = []
         for sname in selected_suppliers:
             match = suppliers_df[suppliers_df["suppliername"] == sname]
@@ -49,7 +50,7 @@ def edit_item_tab():
         st.warning("No suppliers found. Please add them first.")
         selected_supplier_ids = []
 
-    # Update button
+    # Update item
     if st.button("Update Item"):
         db.update_item(selected_item_id, updated_data)
         db.update_item_suppliers(selected_item_id, selected_supplier_ids)
