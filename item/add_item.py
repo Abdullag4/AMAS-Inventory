@@ -4,98 +4,89 @@ from db_handler import DatabaseManager
 db = DatabaseManager()
 
 def add_item_tab():
-    """Page for adding new items to the database, with dropdowns for certain fields."""
-
+    """Tab for adding new items, using dropdowns for some fields."""
     st.subheader("➕ Add New Item")
 
-    # Define item fields that remain text or numeric
-    item_fields_text = {
-        "ItemNameEnglish": "Item Name (English) *",
-        "ItemNameKurdish": "Item Name (Kurdish)",
-        "OriginCountry": "Origin Country",
-        "Manufacturer": "Manufacturer",
-        "Brand": "Brand",
-        "Barcode": "Barcode",
-        "UnitType": "Unit Type",
-        "Packaging": "Packaging",
-        "ItemPicture": "Item Picture URL"
-    }
+    # 1. Gather dropdown values from the Dropdowns table for each field
+    classcat_options = db.get_dropdown_values("ClassCat")
+    deptcat_options = db.get_dropdown_values("DepartmentCat")
+    sectioncat_options = db.get_dropdown_values("SectionCat")
+    familycat_options = db.get_dropdown_values("FamilyCat")
+    subfamilycat_options = db.get_dropdown_values("SubFamilyCat")
+    unittype_options = db.get_dropdown_values("UnitType")
+    packaging_options = db.get_dropdown_values("Packaging")
+    origin_options = db.get_dropdown_values("OriginCountry")
+    manufacturer_options = db.get_dropdown_values("Manufacturer")
+    brand_options = db.get_dropdown_values("Brand")
 
-    # Numeric fields (ShelfLife, Threshold, AverageRequired, etc.)
-    item_fields_numeric = {
-        "ShelfLife": "Shelf Life (days) *",
-        "Threshold": "Minimum Stock Threshold *",
-        "AverageRequired": "Average Required Stock *"
-    }
+    # 2. Create input fields
+    item_name_en = st.text_input("Item Name (English) *")
+    item_name_ku = st.text_input("Item Name (Kurdish)")
 
-    # Fields that should be dropdowns (linked to the 'Dropdowns' table)
-    dropdown_sections = {
-        "ClassCat": "Class Category *",
-        "DepartmentCat": "Department Category *",
-        "SectionCat": "Section Category",
-        "FamilyCat": "Family Category",
-        "SubFamilyCat": "Sub-Family Category"
-    }
+    class_cat = st.selectbox("Class Category *", [""] + classcat_options)
+    dept_cat = st.selectbox("Department Category *", [""] + deptcat_options)
+    section_cat = st.selectbox("Section Category", [""] + sectioncat_options)
+    family_cat = st.selectbox("Family Category", [""] + familycat_options)
+    subfam_cat = st.selectbox("Sub-Family Category", [""] + subfamilycat_options)
 
-    # Prepare item_data dict
-    item_data = {}
+    shelf_life = st.number_input("Shelf Life (days) *", min_value=0, step=1)
+    origin_country = st.selectbox("Origin Country", [""] + origin_options)
+    manufacturer = st.selectbox("Manufacturer", [""] + manufacturer_options)
+    brand = st.selectbox("Brand", [""] + brand_options)
+    barcode = st.text_input("Barcode")
+    unit_type = st.selectbox("Unit Type", [""] + unittype_options)
+    packaging = st.selectbox("Packaging", [""] + packaging_options)
 
-    # 1️⃣ Handle text fields
-    for key, label in item_fields_text.items():
-        item_data[key] = st.text_input(label)
+    threshold = st.number_input("Threshold *", min_value=0, step=1)
+    avg_required = st.number_input("Average Required *", min_value=0, step=1)
+    item_picture = st.text_input("Item Picture URL")
 
-    # 2️⃣ Handle numeric fields
-    for key, label in item_fields_numeric.items():
-        item_data[key] = st.number_input(label, min_value=0, step=1)
-
-    # 3️⃣ Handle dropdown fields from the 'Dropdowns' table
-    for section_key, label in dropdown_sections.items():
-        # Retrieve possible dropdown values for this section (section_key)
-        dropdown_values = db.get_dropdown_values(section_key)
-        if not dropdown_values:
-            st.warning(f"No dropdown values found for '{section_key}'. Go to 'Manage Dropdowns' to add them.")
-            # Let the user pick an empty state or fallback to text
-            # For a real fallback, you'd do something like:
-            # item_data[section_key] = st.text_input(f"{label} (No dropdowns found!)")
-            # but for simplicity we do an empty list:
-            selected_val = st.selectbox(label, ["-- No Values --"])
-            if selected_val == "-- No Values --":
-                item_data[section_key] = ""
-            else:
-                item_data[section_key] = selected_val
-        else:
-            selected_val = st.selectbox(label, dropdown_values)
-            item_data[section_key] = selected_val
-
-    # ✅ Fetch supplier list
+    # 3. Fetch suppliers for multi-select
     suppliers_df = db.get_suppliers()
-    if suppliers_df.empty:
-        st.warning("⚠️ No suppliers available! Please add suppliers first.")
-        selected_supplier_ids = []
+    if not suppliers_df.empty:
+        supplier_names = suppliers_df["SupplierName"].tolist()
+        selected_sup_names = st.multiselect("Select Supplier(s)", supplier_names)
+        # Convert to SupplierID
+        selected_sup_ids = []
+        for name in selected_sup_names:
+            # row matching name
+            matched = suppliers_df[suppliers_df["SupplierName"] == name]
+            if not matched.empty:
+                selected_sup_ids.append(matched.iloc[0]["SupplierID"])
     else:
-        # Convert to dictionary {SupplierName: SupplierID}
-        supplier_options = dict(zip(suppliers_df["SupplierName"], suppliers_df["SupplierID"]))
-        selected_supplier_names = st.multiselect("Select Supplier(s) *", list(supplier_options.keys()))
-        # Convert chosen supplier names to IDs
-        selected_supplier_ids = [supplier_options[name] for name in selected_supplier_names]
+        st.warning("⚠️ No suppliers available. Please add them first.")
+        selected_sup_ids = []
 
-    # 🔹 Final check for required fields
-    required_fields = ["ItemNameEnglish", "ClassCat", "DepartmentCat", "ShelfLife", "Threshold", "AverageRequired"]
+    # 4. On Add Item button
     if st.button("Add Item"):
-        # Check if required text/numeric fields are filled
-        missing = [field for field in required_fields if not item_data.get(field)]
-        if missing:
-            st.error(f"❌ Please fill in all required fields: {', '.join(missing)}")
+        required_fields = [item_name_en, class_cat, dept_cat, shelf_life, threshold, avg_required]
+        if any(not x for x in required_fields):
+            st.error("❌ Please fill in all required fields (English Name, ClassCat, DeptCat, ShelfLife, Threshold, AvgRequired).")
             return
 
-        # Check if at least one supplier is selected
-        if not selected_supplier_ids:
-            st.error("❌ Please select at least one supplier.")
-            return
+        item_data = {
+            "ItemNameEnglish": item_name_en,
+            "ItemNameKurdish": item_name_ku,
+            "ClassCat": class_cat,
+            "DepartmentCat": dept_cat,
+            "SectionCat": section_cat,
+            "FamilyCat": family_cat,
+            "SubFamilyCat": subfam_cat,
+            "ShelfLife": shelf_life,
+            "OriginCountry": origin_country,
+            "Manufacturer": manufacturer,
+            "Brand": brand,
+            "Barcode": barcode,
+            "UnitType": unit_type,
+            "Packaging": packaging,
+            "Threshold": threshold,
+            "AverageRequired": avg_required,
+            "ItemPicture": item_picture
+        }
 
-        # Attempt to add the item
-        item_id = db.add_item(item_data, selected_supplier_ids)
+        # Insert item + link to suppliers
+        item_id = db.add_item(item_data, selected_sup_ids)
         if item_id:
-            st.success("✅ Item added successfully and linked to suppliers!")
+            st.success("✅ Item added successfully!")
         else:
-            st.error("❌ Failed to add the item. Check logs or DB for details.")
+            st.error("❌ Failed to add item. Possibly a duplicate or database issue.")
