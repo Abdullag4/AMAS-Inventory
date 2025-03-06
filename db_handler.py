@@ -37,19 +37,9 @@ class DatabaseManager:
             conn.commit()
         conn.close()
 
-    def execute_command_returning(self, query, params=None):
-        conn = self.get_connection()
-        if not conn:
-            return None
-        result = None
-        with conn.cursor() as cur:
-            cur.execute(query, params or ())
-            result = cur.fetchone()
-            conn.commit()
-        conn.close()
-        return result
-
-    # ─────────── Dropdown Management ───────────
+    ########################
+    # Dropdown Management
+    ########################
     def get_all_sections(self):
         df = self.fetch_data("SELECT DISTINCT section FROM Dropdowns")
         return df["section"].tolist() if not df.empty else []
@@ -71,19 +61,22 @@ class DatabaseManager:
         query = "DELETE FROM Dropdowns WHERE section = %s AND value = %s"
         self.execute_command(query, (section, value))
 
-    # ───────────── Supplier Management ─────────────
+    ########################
+    # Supplier Management
+    ########################
     def get_suppliers(self):
         """
-        Retrieve all suppliers, ensuring columns are named 'SupplierID' and 'SupplierName'.
+        Retrieve suppliers from 'Supplier' table and rename columns to lowercase.
+        => columns: supplierid, suppliername
         """
         df = self.fetch_data("SELECT supplierid, suppliername FROM Supplier")
-
-        # ✅ Rename columns to match expected usage in code
         if not df.empty:
-            df.columns = ["SupplierID", "SupplierName"]
+            df.columns = df.columns.str.lower()  # => ["supplierid", "suppliername"]
         return df
 
-    # ───────────── Items & Linking ─────────────
+    ########################
+    # Items & Linking
+    ########################
     def get_items(self):
         return self.fetch_data("SELECT * FROM Item")
 
@@ -95,7 +88,10 @@ class DatabaseManager:
         WHERE isup.ItemID = %s
         """
         df = self.fetch_data(query, (item_id,))
-        return df["suppliername"].tolist() if not df.empty else []
+        if not df.empty:
+            df.columns = df.columns.str.lower()  # => ["suppliername"]
+            return df["suppliername"].tolist()
+        return []
 
     def add_item(self, item_data, supplier_ids):
         cols = ", ".join(item_data.keys())
@@ -106,17 +102,17 @@ class DatabaseManager:
         RETURNING ItemID
         """
 
-        new_id = self.execute_command_returning(query, list(item_data.values()))
+        new_id = self._execute_returning_one(query, list(item_data.values()))
         if new_id:
-            item_id = new_id[0]
+            item_id = new_id
             self.link_item_suppliers(item_id, supplier_ids)
             return item_id
         return None
 
     def link_item_suppliers(self, item_id, supplier_ids):
-        for supplier_id in supplier_ids:
+        for sid in supplier_ids:
             query = "INSERT INTO ItemSupplier (ItemID, SupplierID) VALUES (%s, %s)"
-            self.execute_command(query, (item_id, supplier_id))
+            self.execute_command(query, (item_id, sid))
 
     def update_item(self, item_id, updated_data):
         if not updated_data:
@@ -129,9 +125,32 @@ class DatabaseManager:
         self.execute_command(query, vals)
 
     def update_item_suppliers(self, item_id, supplier_ids):
+        # Remove old
         self.execute_command("DELETE FROM ItemSupplier WHERE ItemID = %s", (item_id,))
-        for supplier_id in supplier_ids:
+        # Add new
+        for sid in supplier_ids:
             self.execute_command(
                 "INSERT INTO ItemSupplier (ItemID, SupplierID) VALUES (%s, %s)",
-                (item_id, supplier_id)
+                (item_id, sid)
             )
+
+    ########################
+    # Internal helper
+    ########################
+    def _execute_returning_one(self, query, params=None):
+        """
+        Executes an INSERT/UPDATE with RETURNING that expects exactly 1 row, e.g. (ItemID,).
+        Returns the integer ID or None.
+        """
+        conn = self.get_connection()
+        if not conn:
+            return None
+        result = None
+        with conn.cursor() as cur:
+            cur.execute(query, params or ())
+            row = cur.fetchone()  # e.g. (31,)
+            conn.commit()
+            if row:
+                result = row[0]  # e.g. 31
+        conn.close()
+        return result
