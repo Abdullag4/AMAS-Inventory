@@ -38,76 +38,30 @@ class DatabaseManager:
                 conn.commit()
             conn.close()
 
-    def execute_command_returning(self, query, params=None):
-        """Execute an INSERT or UPDATE query and return affected rows."""
-        conn = self.get_connection()
-        result = None
-        if conn:
-            with conn.cursor() as cur:
-                cur.execute(query, params or ())
-                result = cur.fetchone()  # ✅ Fetch generated ID
-                conn.commit()
-            conn.close()
-        return result
+    ### 🔽🔽 NEW METHODS FOR MANAGING DROPDOWNS 🔽🔽 ###
+    
+    def get_dropdown_values(self, section):
+        """Retrieve all values for a specific section from Dropdowns table."""
+        query = "SELECT Value FROM Dropdowns WHERE Section = %s"
+        result = self.fetch_data(query, (section,))
+        return result["value"].tolist() if not result.empty else []
 
-    def get_items(self):
-        """Retrieve all items."""
-        query = "SELECT * FROM Item"
-        return self.fetch_data(query)
-
-    def get_suppliers(self):
-        """Retrieve all suppliers."""
-        query = "SELECT SupplierID, SupplierName FROM Supplier"
-        return self.fetch_data(query)
-
-    def get_item_suppliers(self, item_id):
-        """Retrieve supplier names linked to a specific item."""
+    def add_dropdown_value(self, section, value):
+        """Add a new value to a specific section in the Dropdowns table."""
         query = """
-        SELECT s.SupplierName FROM ItemSupplier isup
-        JOIN Supplier s ON isup.SupplierID = s.SupplierID
-        WHERE isup.ItemID = %s
+        INSERT INTO Dropdowns (Section, Value) 
+        VALUES (%s, %s) 
+        ON CONFLICT (Section, Value) DO NOTHING
         """
-        result = self.fetch_data(query, (item_id,))
-        return result["suppliername"].tolist() if not result.empty else []
+        self.execute_command(query, (section, value))
 
-    def add_item(self, item_data, supplier_ids):
-        """Insert a new item and link it to suppliers."""
-        columns = ", ".join(item_data.keys())
-        values_placeholders = ", ".join(["%s"] * len(item_data))
+    def delete_dropdown_value(self, section, value):
+        """Delete a value from a specific section in the Dropdowns table."""
+        query = "DELETE FROM Dropdowns WHERE Section = %s AND Value = %s"
+        self.execute_command(query, (section, value))
 
-        query = f"""
-        INSERT INTO Item ({columns}, CreatedAt, UpdatedAt)
-        VALUES ({values_placeholders}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        RETURNING ItemID
-        """
-
-        item_id = self.execute_command_returning(query, list(item_data.values()))
-
-        if item_id:
-            item_id_int = int(item_id[0])  # ✅ Convert tuple result to int
-            self.link_item_suppliers(item_id_int, supplier_ids)
-            return item_id_int
-        return None
-
-    def link_item_suppliers(self, item_id, supplier_ids):
-        """Link an item to multiple suppliers in the ItemSupplier table."""
-        for supplier_id in supplier_ids:
-            query = "INSERT INTO ItemSupplier (ItemID, SupplierID) VALUES (%s, %s)"
-            self.execute_command(query, (item_id, supplier_id))  # ✅ No int conversion needed
-
-    def update_item(self, item_id, updated_data):
-        """Update item details."""
-        columns = ", ".join(f"{col} = %s" for col in updated_data.keys())
-        values = list(updated_data.values()) + [item_id]
-
-        query = f"UPDATE Item SET {columns}, UpdatedAt = CURRENT_TIMESTAMP WHERE ItemID = %s"
-        self.execute_command(query, values)
-
-    def update_item_suppliers(self, item_id, supplier_ids):
-        """Update suppliers linked to an item (Remove old, add new)."""
-        delete_query = "DELETE FROM ItemSupplier WHERE ItemID = %s"
-        self.execute_command(delete_query, (item_id,))
-
-        for supplier_id in supplier_ids:
-            insert_query = "INSERT INTO ItemSupplier (ItemID, SupplierID) VALUES (%s, %s)"
-            self.execute_command(insert_query, (item_id, supplier_id))
+    def get_all_sections(self):
+        """Retrieve all unique sections from the Dropdowns table."""
+        query = "SELECT DISTINCT Section FROM Dropdowns"
+        result = self.fetch_data(query)
+        return result["section"].tolist() if not result.empty else []
