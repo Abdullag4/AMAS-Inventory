@@ -4,14 +4,10 @@ from db_handler import DatabaseManager
 class ItemHandler(DatabaseManager):
     """Handles all item-related database interactions separately."""
 
+    # Item methods
     def get_items(self):
         query = "SELECT * FROM item"
         return self.fetch_data(query)
-
-    def get_dropdown_values(self, section):
-        query = "SELECT value FROM Dropdowns WHERE section = %s"
-        df = self.fetch_data(query, (section,))
-        return df["value"].tolist() if not df.empty else []
 
     def get_suppliers(self):
         query = "SELECT SupplierID, SupplierName FROM Supplier"
@@ -44,12 +40,10 @@ class ItemHandler(DatabaseManager):
     def link_item_suppliers(self, item_id, supplier_ids):
         if not supplier_ids:
             return
-
         values = ", ".join(["(%s, %s)"] * len(supplier_ids))
         params = []
         for supplier_id in supplier_ids:
             params.extend([item_id, supplier_id])
-
         query = f"""
         INSERT INTO itemsupplier (itemid, supplierid) 
         VALUES {values}
@@ -61,7 +55,6 @@ class ItemHandler(DatabaseManager):
         if not updated_data:
             st.warning("⚠️ No changes made.")
             return
-
         set_clause = ", ".join(f"{col} = %s" for col in updated_data.keys())
         query = f"""
         UPDATE item
@@ -71,14 +64,27 @@ class ItemHandler(DatabaseManager):
         params = list(updated_data.values()) + [item_id]
         self.execute_command(query, params)
 
-    # ✅ Newly added method
     def update_item_suppliers(self, item_id, supplier_ids):
-        """Update suppliers linked to an item (remove old, add new)."""
-        # First remove existing supplier links
         delete_query = "DELETE FROM ItemSupplier WHERE ItemID = %s"
         self.execute_command(delete_query, (item_id,))
-
-        # Then add new supplier links
         for supplier_id in supplier_ids:
             insert_query = "INSERT INTO ItemSupplier (ItemID, SupplierID) VALUES (%s, %s)"
             self.execute_command(insert_query, (item_id, supplier_id))
+
+    # Dropdown methods explicitly added here:
+    def get_dropdown_values(self, section):
+        query = "SELECT value FROM Dropdowns WHERE section = %s"
+        df = self.fetch_data(query, (section,))
+        return df["value"].tolist() if not df.empty else []
+
+    def add_dropdown_value(self, section, value):
+        query = """
+        INSERT INTO Dropdowns (section, value)
+        VALUES (%s, %s)
+        ON CONFLICT (section, value) DO NOTHING
+        """
+        self.execute_command(query, (section, value))
+
+    def delete_dropdown_value(self, section, value):
+        query = "DELETE FROM Dropdowns WHERE section = %s AND value = %s"
+        self.execute_command(query, (section, value))
