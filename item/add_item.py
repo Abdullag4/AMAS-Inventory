@@ -13,7 +13,7 @@ def add_item_tab():
     ]
 
     dropdown_values = {
-        field: item_handler.db.get_dropdown_values(field) for field in dropdown_fields
+        field: item_handler.get_dropdown_values(field) for field in dropdown_fields
     }
 
     # Input fields
