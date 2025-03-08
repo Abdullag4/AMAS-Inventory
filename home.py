@@ -13,7 +13,7 @@ def home():
     query = """
     SELECT i.ItemID, i.ItemNameEnglish, i.ClassCat, i.DepartmentCat, i.SectionCat, 
            i.FamilyCat, i.SubFamilyCat, inv.Quantity, inv.ExpirationDate, 
-           inv.StorageLocation, i.Threshold, i.AverageRequired 
+           inv.StorageLocation, i.Threshold, i.ItemPicture, i.AverageRequired 
     FROM Inventory inv
     JOIN Item i ON inv.ItemID = i.ItemID
     """
