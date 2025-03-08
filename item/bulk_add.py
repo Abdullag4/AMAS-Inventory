@@ -2,9 +2,9 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import io
-from db_handler import DatabaseManager
+from item.item_handler import ItemHandler
 
-db = DatabaseManager()  # ✅ Database instance
+item_handler = ItemHandler()
 
 def generate_example_excel():
     """Generate an example Excel file with all required columns for bulk item addition."""
@@ -81,7 +81,7 @@ def bulk_add_tab():
                 df[col] = df[col].astype(int)
 
             # ✅ Fetch supplier data & debug
-            supplier_df = db.get_suppliers()
+            supplier_df = item_handler.get_suppliers()
             st.write("🔍 Supplier Table Data:", supplier_df)
 
             if supplier_df.empty or "suppliername" not in supplier_df.columns:
@@ -89,7 +89,7 @@ def bulk_add_tab():
                 return
 
             # ✅ Fetch existing item names to prevent duplicates
-            existing_items_df = db.get_items()
+            existing_items_df = item_handler.get_items()
             existing_item_names = set(existing_items_df["itemnameenglish"].str.lower()) if not existing_items_df.empty else set()
 
             # ✅ Create a set of available supplier names (for fast lookup)
