@@ -125,7 +125,7 @@ def bulk_add_tab():
                 supplier_id = int(supplier_match.iloc[0]["supplierid"])  # ✅ Convert supplier_id to int
 
                 # ✅ Add the item & link to supplier
-                db.add_item(item_data, [supplier_id])
+                item_handler.add_item(item_data, [supplier_id])
                 items_added += 1
 
             # ✅ Success Message
