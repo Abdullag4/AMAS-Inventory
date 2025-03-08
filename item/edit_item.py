@@ -1,14 +1,14 @@
 import streamlit as st
-from db_handler import DatabaseManager
+from item.item_handler import ItemHandler
 
-db = DatabaseManager()  # ✅ Create a single DB instance
+item_handler = ItemHandler()
 
 def edit_item_tab():
     """Tab for editing existing item details, including suppliers."""
     st.header("✏️ Edit Item Details")
 
     # ✅ Fetch items
-    items_df = db.get_items()
+    items_df = item_handler.get_items()
 
     if items_df.empty:
         st.warning("⚠️ No items available for editing.")
@@ -23,8 +23,8 @@ def edit_item_tab():
     selected_item = items_df[items_df["itemid"] == selected_item_id].iloc[0]
 
     # ✅ Fetch suppliers linked to this item
-    suppliers_df = db.get_suppliers()
-    linked_suppliers = db.get_item_suppliers(selected_item_id)
+    suppliers_df = item_handler.get_suppliers()
+    linked_suppliers = item_handler.get_item_suppliers(selected_item_id)
 
     # ✅ Display editable fields
     updated_data = {}
@@ -43,6 +43,6 @@ def edit_item_tab():
 
     # ✅ Update Button
     if st.button("Update Item"):
-        db.update_item(selected_item_id, updated_data)
-        db.update_item_suppliers(selected_item_id, selected_supplier_ids)
+        item_handler.update_item(selected_item_id, updated_data)
+        item_handler.update_item_suppliers(selected_item_id, selected_supplier_ids)
         st.success("✅ Item details and suppliers updated successfully!")
