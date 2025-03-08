@@ -31,11 +31,6 @@ def add_item_tab():
     item_name_en = st.text_input("Item Name (English) *")
     item_name_ku = st.text_input("Item Name (Kurdish)")
 
-    # Validate Class Category dropdown separately
-    if not dropdown_values["Class Category"]:
-        st.warning("⚠️ Class Category values are missing. Please add them first in the Dropdowns tab.")
-        return
-
     class_cat = st.selectbox("Class Category *", [""] + dropdown_values["Class Category"])
 
     # Other dropdowns
