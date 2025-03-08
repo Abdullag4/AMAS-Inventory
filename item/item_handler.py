@@ -54,18 +54,19 @@ class ItemHandler(DatabaseManager):
         """Link item to multiple suppliers in the ItemSupplier table."""
         if not supplier_ids:
             return
-        
+           
+        # Convert numpy.int64 to Python int explicitly
         values = ", ".join(["(%s, %s)"] * len(supplier_ids))
         params = []
         for supplier_id in supplier_ids:
-            params.extend([item_id, supplier_id])
+            params.extend([int(item_id), int(supplier_id)])  # ✅ Convert both to Python ints explicitly
 
         query = f"""
         INSERT INTO itemsupplier (itemid, supplierid) 
         VALUES {values} 
         ON CONFLICT DO NOTHING
         """
-        
+    
         self.execute_command(query, params)
 
     def get_suppliers(self):
