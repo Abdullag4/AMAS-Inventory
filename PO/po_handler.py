@@ -1,26 +1,35 @@
-import pandas as pd
 from db_handler import DatabaseManager
+import pandas as pd
 
 class POHandler(DatabaseManager):
     def get_low_stock_items_with_supplier(self):
         query = """
-        SELECT 
-            i.ItemID,
-            i.ItemNameEnglish,
-            i.ItemPicture,
-            (i.averagerequired - COALESCE(SUM(inv.Quantity), 0)) AS required_quantity,
-            s.SupplierName
+        SELECT i.ItemID, i.ItemNameEnglish, i.ItemPicture, s.SupplierName, 
+               (i.AverageRequired - SUM(inv.Quantity)) AS required_quantity
         FROM Item i
-        LEFT JOIN Inventory inv ON i.ItemID = inv.ItemID
-        LEFT JOIN ItemSupplier isup ON i.ItemID = isup.ItemID
-        LEFT JOIN Supplier s ON isup.SupplierID = s.SupplierID
-        GROUP BY i.ItemID, i.ItemNameEnglish, i.ItemPicture, s.SupplierName, i.threshold, i.averagerequired
-        HAVING COALESCE(SUM(inv.Quantity), 0) < i.threshold
+        JOIN Inventory inv ON i.ItemID = inv.ItemID
+        JOIN ItemSupplier isup ON i.ItemID = isup.ItemID
+        JOIN Supplier s ON isup.SupplierID = s.SupplierID
+        GROUP BY i.ItemID, i.ItemNameEnglish, i.ItemPicture, s.SupplierName, i.Threshold, i.AverageRequired
+        HAVING SUM(inv.Quantity) < i.Threshold
         """
         return self.fetch_data(query)
 
-    def send_auto_po(self, po_data_df):
-        # Placeholder implementation
-        for _, row in po_data_df.iterrows():
-            # Insert into PurchaseOrder table, send email, etc.
-            print(f"Sending PO: Item {row['ItemNameEnglish']} to {row['SupplierName']} for {row['required_quantity']} units.")
+    def send_auto_po(self, low_stock_items):
+        for _, row in low_stock_items.iterrows():
+            query = """
+            INSERT INTO PurchaseOrders (ItemID, SupplierID, Quantity, Status, OrderDate)
+            VALUES (%s, (SELECT SupplierID FROM Supplier WHERE SupplierName = %s), %s, 'Pending', CURRENT_TIMESTAMP)
+            """
+            params = (row["itemid"], row["suppliername"], int(row["required_quantity"]))
+            self.execute_command(query, params)
+
+    def get_all_purchase_orders(self):
+        query = """
+        SELECT po.POID, po.ItemID, i.ItemNameEnglish, i.ItemPicture, po.Quantity, po.Status, po.OrderDate, po.ExpectedDelivery, s.SupplierName
+        FROM PurchaseOrders po
+        JOIN Item i ON po.ItemID = i.ItemID
+        JOIN Supplier s ON po.SupplierID = s.SupplierID
+        ORDER BY po.OrderDate DESC
+        """
+        return self.fetch_data(query)
