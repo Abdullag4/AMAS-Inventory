@@ -7,8 +7,8 @@ def add_item_tab():
     st.header("➕ Add New Item")
 
     dropdown_fields = [
-        "Class Category", "Department Category", "Section Category", 
-        "Family Category", "Sub-Family Category", 
+        "Class Category", "Department Category", "Section Category",
+        "Family Category", "Sub-Family Category",
         "Unit Type", "Packaging", "Origin Country", "Manufacturer", "Brand"
     ]
 
@@ -54,7 +54,10 @@ def add_item_tab():
             st.error("❌ Please fill in all required fields before adding the item.")
             return
 
-        if item_handler.item_exists(item_name_en):
+        existing_items_df = item_handler.get_items()
+        existing_item_names = existing_items_df["itemnameenglish"].str.lower().tolist()
+
+        if item_name_en.lower() in existing_item_names:
             st.error(f"❌ Item '{item_name_en}' already exists!")
             return
 
