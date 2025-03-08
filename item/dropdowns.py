@@ -14,7 +14,7 @@ def manage_dropdowns_tab():
     selected_section = st.selectbox("Select Dropdown Section", sections)
 
     # Display current values
-    current_values = item_handler.get_dropdown_values(selected_section)
+    current_values = item_handler.db.get_dropdown_values(selected_section)
     st.write("**Current Values:**")
     st.write(current_values)
 
