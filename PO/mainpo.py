@@ -1,16 +1,16 @@
 import streamlit as st
-from po.autopo import auto_po_tab
-from po.trackpo import track_po_tab
-from po.manualpo import manual_po_tab
+from PO.autopo import auto_po_tab
+from PO.trackpo import track_po_tab
+from PO.manualpo import manual_po_tab
 
-def po_main_page():
-    st.title("📦 Purchase Order Management")
+def po_page():
+    st.title("🛒 Purchase Order Management")
 
-    tab1, tab2, tab3 = st.tabs(["Auto PO", "Tracking PO", "Manual PO"])
+    tabs = st.tabs(["Auto PO", "Track PO", "Manual PO"])
 
-    with tab1:
+    with tabs[0]:
         auto_po_tab()
-    with tab2:
+    with tabs[1]:
         track_po_tab()
-    with tab3:
+    with tabs[2]:
         manual_po_tab()
