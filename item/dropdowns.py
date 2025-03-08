@@ -1,7 +1,7 @@
 import streamlit as st
-from db_handler import DatabaseManager
+from item.item_handler import ItemHandler
 
-db = DatabaseManager()
+item_handler = ItemHandler()
 
 def manage_dropdowns_tab():
     st.subheader("🛠️ Manage Dropdown Values")
