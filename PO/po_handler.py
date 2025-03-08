@@ -5,18 +5,26 @@ from db_handler import DatabaseManager
 class POHandler(DatabaseManager):
     """Handles all Purchase Order related database interactions."""
 
-    # ✅ Fetch low stock items along with their suppliers
+    # ✅ Fetch low stock items with suppliers and calculate required quantity
     def get_low_stock_items_with_supplier(self):
         query = """
         SELECT i.ItemID, i.ItemNameEnglish, i.ItemPicture, i.Threshold, 
-               i.AverageRequired, inv.Quantity, s.SupplierID, s.SupplierName
-        FROM Inventory inv
-        JOIN Item i ON inv.ItemID = i.ItemID
+               i.AverageRequired, COALESCE(inv.Quantity, 0) AS CurrentQuantity, 
+               s.SupplierID, s.SupplierName
+        FROM Item i
+        LEFT JOIN Inventory inv ON i.ItemID = inv.ItemID
         JOIN ItemSupplier isup ON i.ItemID = isup.ItemID
         JOIN Supplier s ON isup.SupplierID = s.SupplierID
-        WHERE inv.Quantity < i.Threshold
+        WHERE COALESCE(inv.Quantity, 0) < i.Threshold
         """
-        return self.fetch_data(query)
+        df = self.fetch_data(query)
+
+        if not df.empty:
+            # ✅ Calculate required quantity
+            df["RequiredQuantity"] = df["AverageRequired"] - df["CurrentQuantity"]
+            df["RequiredQuantity"] = df["RequiredQuantity"].clip(lower=0)  # Ensure no negative values
+
+        return df
 
     # ✅ Insert a new purchase order
     def create_purchase_order(self, supplier_id, expected_delivery, items):
@@ -42,7 +50,7 @@ class POHandler(DatabaseManager):
         VALUES (%s, %s, %s)
         """
         for item in items:
-            self.execute_command(query, (po_id, item["ItemID"], item["Quantity"]))
+            self.execute_command(query, (po_id, item["ItemID"], item["RequiredQuantity"]))
 
     # ✅ Fetch all purchase orders with item details
     def get_all_purchase_orders(self):
