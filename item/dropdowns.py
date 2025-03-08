@@ -14,7 +14,7 @@ def manage_dropdowns_tab():
     selected_section = st.selectbox("Select Dropdown Section", sections)
 
     # Display current values
-    current_values = db.get_dropdown_values(selected_section)
+    current_values = item_handler.get_dropdown_values(selected_section)
     st.write("**Current Values:**")
     st.write(current_values)
 
@@ -33,7 +33,7 @@ def manage_dropdowns_tab():
             skipped = []
             for val in new_values:
                 if val not in current_values:
-                    db.add_dropdown_value(selected_section, val)
+                    item_handler.add_dropdown_value(selected_section, val)
                     added.append(val)
                 else:
                     skipped.append(val)
@@ -59,7 +59,7 @@ def manage_dropdowns_tab():
     if st.button("Delete Selected Values"):
         if values_to_delete:
             for val in values_to_delete:
-                db.delete_dropdown_value(selected_section, val)
+                item_handler.delete_dropdown_value(selected_section, val)
             st.success(f"✅ Deleted: {', '.join(values_to_delete)}")
             st.rerun()
         else:
