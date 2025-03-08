@@ -8,27 +8,37 @@ def add_item_tab():
 
     required_fields = ["Item Name (English)", "Class Category", "Shelf Life", "Threshold", "Average Required"]
 
-    dropdown_fields = [
-        "Class Category", "Department Category", "Section Category", "Family Category", 
-        "Sub-Family Category", "Unit Type", "Packaging", "Origin Country", 
-        "Manufacturer", "Brand"
-    ]
-
-    # Safely load dropdown values, providing an empty list if not found
-    dropdown_values = {
-        field: item_handler.get_dropdown_values(field) or [] for field in dropdown_fields
+    # Mapping dropdown labels to database sections
+    dropdown_fields = {
+        "Class Category": "ClassCat",
+        "Department Category": "DepartmentCat",
+        "Section Category": "SectionCat",
+        "Family Category": "FamilyCat",
+        "Sub-Family Category": "SubFamilyCat",
+        "Unit Type": "UnitType",
+        "Packaging": "Packaging",
+        "Origin Country": "OriginCountry",
+        "Manufacturer": "Manufacturer",
+        "Brand": "Brand"
     }
 
-    # Check specifically for Class Category availability
-    if not dropdown_values["Class Category"]:
-        st.error("⚠️ Class Category values are missing. Please add them first in the Dropdowns tab.")
-        return
+    dropdown_values = {
+        label: item_handler.get_dropdown_values(db_field) 
+        for label, db_field in dropdown_fields.items()
+    }
 
     # Input fields
     item_name_en = st.text_input("Item Name (English) *")
     item_name_ku = st.text_input("Item Name (Kurdish)")
 
+    # Validate Class Category dropdown separately
+    if not dropdown_values["Class Category"]:
+        st.warning("⚠️ Class Category values are missing. Please add them first in the Dropdowns tab.")
+        return
+
     class_cat = st.selectbox("Class Category *", [""] + dropdown_values["Class Category"])
+
+    # Other dropdowns
     department_cat = st.selectbox("Department Category", [""] + dropdown_values["Department Category"])
     section_cat = st.selectbox("Section Category", [""] + dropdown_values["Section Category"])
     family_cat = st.selectbox("Family Category", [""] + dropdown_values["Family Category"])
