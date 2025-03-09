@@ -3,92 +3,59 @@ import pandas as pd
 from db_handler import DatabaseManager
 
 class POHandler(DatabaseManager):
-    """Handles all Purchase Order related database interactions."""
+    """Handles all purchase order-related database operations."""
 
-    # ✅ Fetch low stock items with suppliers and calculate required quantity
-    def get_low_stock_items_with_supplier(self):
+    # ✅ Fetch all suppliers
+    def get_suppliers(self):
+        query = "SELECT SupplierID, SupplierName FROM Supplier"
+        return self.fetch_data(query)
+
+    # ✅ Fetch all items (Including item pictures)
+    def get_items(self):
         query = """
-        SELECT i.ItemID, i.ItemNameEnglish, i.ItemPicture, i.Threshold, 
-               i.AverageRequired, COALESCE(inv.Quantity, 0) AS CurrentQuantity, 
-               s.SupplierID, s.SupplierName
-        FROM Item i
-        LEFT JOIN Inventory inv ON i.ItemID = inv.ItemID
-        JOIN ItemSupplier isup ON i.ItemID = isup.ItemID
-        JOIN Supplier s ON isup.SupplierID = s.SupplierID
-        WHERE COALESCE(inv.Quantity, 0) < i.Threshold
-        """
-        df = self.fetch_data(query)
-
-        if not df.empty:
-            # ✅ Calculate required quantity
-            df["RequiredQuantity"] = df["AverageRequired"] - df["CurrentQuantity"]
-            df["RequiredQuantity"] = df["RequiredQuantity"].clip(lower=0)  # Ensure no negative values
-
-        return df
-
-    # ✅ Insert a new purchase order
-    def create_purchase_order(self, supplier_id, expected_delivery, items):
-        """Creates a new purchase order and links it to multiple items."""
-        query = """
-        INSERT INTO PurchaseOrders (SupplierID, OrderDate, ExpectedDelivery, Status, CreatedAt)
-        VALUES (%s, CURRENT_TIMESTAMP, %s, 'Pending', CURRENT_TIMESTAMP)
-        RETURNING POID
-        """
-        po_id = self.execute_command_returning(query, (supplier_id, expected_delivery))
-
-        if po_id:
-            po_id = po_id[0]  # Extract POID
-            self.add_items_to_purchase_order(po_id, items)
-            return po_id
-        return None
-
-    # ✅ Add items to a purchase order
-    def add_items_to_purchase_order(self, po_id, items):
-        """Links multiple items to a purchase order in the PurchaseOrderItems table."""
-        query = """
-        INSERT INTO PurchaseOrderItems (POID, ItemID, Quantity)
-        VALUES (%s, %s, %s)
-        """
-        for item in items:
-            self.execute_command(query, (po_id, item["ItemID"], item["RequiredQuantity"]))
-
-    # ✅ Fetch all purchase orders with item details
-    def get_all_purchase_orders(self):
-        query = """
-        SELECT po.POID, poi.ItemID, i.ItemNameEnglish, i.ItemPicture, poi.Quantity, 
-               po.Status, po.OrderDate, po.ExpectedDelivery, s.SupplierName
-        FROM PurchaseOrders po
-        JOIN PurchaseOrderItems poi ON po.POID = poi.POID
-        JOIN Item i ON poi.ItemID = i.ItemID
-        JOIN Supplier s ON po.SupplierID = s.SupplierID
-        ORDER BY po.OrderDate DESC
+        SELECT ItemID, ItemNameEnglish, ItemPicture 
+        FROM Item
         """
         return self.fetch_data(query)
 
-    # ✅ Fetch purchase orders for a specific supplier
-    def get_supplier_purchase_orders(self, supplier_id):
+    # ✅ Create Manual PO
+    def create_manual_po(self, supplier_id, po_items):
+        """Creates a manual purchase order and links items to it."""
+        try:
+            # ✅ Step 1: Insert new PO
+            po_query = """
+            INSERT INTO PurchaseOrders (SupplierID)
+            VALUES (%s)
+            RETURNING POID
+            """
+            po_id_result = self.execute_command_returning(po_query, (supplier_id,))
+            if not po_id_result:
+                return None
+
+            po_id = po_id_result[0]
+
+            # ✅ Step 2: Link Items to PO
+            for item in po_items:
+                query = """
+                INSERT INTO PurchaseOrderItems (POID, ItemID, Quantity, EstimatedPrice)
+                VALUES (%s, %s, %s, %s)
+                """
+                self.execute_command(query, (po_id, item["item_id"], item["quantity"], item["estimated_price"] or None))
+
+            return po_id
+        except Exception as e:
+            st.error(f"❌ Error creating PO: {e}")
+            return None
+
+    # ✅ Fetch All Purchase Orders for Tracking
+    def get_all_purchase_orders(self):
         query = """
-        SELECT po.POID, poi.ItemID, i.ItemNameEnglish, i.ItemPicture, poi.Quantity, 
-               po.Status, po.OrderDate, po.ExpectedDelivery
+        SELECT po.POID, po.SupplierID, s.SupplierName, po.Status, po.RespondedAt, po.ExpectedDelivery,
+               poi.ItemID, i.ItemNameEnglish, poi.Quantity, poi.EstimatedPrice, i.ItemPicture
         FROM PurchaseOrders po
+        JOIN Supplier s ON po.SupplierID = s.SupplierID
         JOIN PurchaseOrderItems poi ON po.POID = poi.POID
         JOIN Item i ON poi.ItemID = i.ItemID
-        WHERE po.SupplierID = %s
         ORDER BY po.OrderDate DESC
         """
-        return self.fetch_data(query, (supplier_id,))
-
-    # ✅ Update purchase order status
-    def update_purchase_order_status(self, po_id, status, actual_delivery=None):
-        """Updates the status of a purchase order and sets delivery date if received."""
-        query = "UPDATE PurchaseOrders SET Status = %s"
-        params = [status]
-
-        if status == "Received" and actual_delivery:
-            query += ", ActualDelivery = %s"
-            params.append(actual_delivery)
-
-        query += " WHERE POID = %s"
-        params.append(po_id)
-
-        self.execute_command(query, tuple(params))
+        return self.fetch_data(query)
