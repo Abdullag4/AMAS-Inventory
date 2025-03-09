@@ -1,60 +1,45 @@
 import streamlit as st
-import pandas as pd
 from PO.po_handler import POHandler
 
 po_handler = POHandler()
 
 def manual_po_tab():
-    """Allows users to manually create a purchase order."""
     st.header("📝 Create Manual Purchase Order")
 
-    # ✅ Step 1: Select Supplier
+    # ✅ Load suppliers and items
     suppliers_df = po_handler.get_suppliers()
-    if suppliers_df.empty:
-        st.error("❌ No suppliers found. Please add suppliers first.")
-        return
-
-    supplier_options = dict(zip(suppliers_df["suppliername"], suppliers_df["supplierid"]))
-    selected_supplier = st.selectbox("Select Supplier", list(supplier_options.keys()))
-
-    # ✅ Step 2: Select Items
     items_df = po_handler.get_items()
-    if items_df.empty:
-        st.error("❌ No items found. Please add items first.")
-        return
 
-    # ✅ Show item names & pictures
-    item_options = dict(zip(items_df["itemnameenglish"], items_df["itemid"]))
-    selected_items = st.multiselect("Select Items", list(item_options.keys()))
+    supplier_options = suppliers_df.set_index("suppliername")["supplierid"].to_dict()
+    item_options = items_df.set_index("itemnameenglish")["itemid"].to_dict()
 
-    # ✅ Step 3: Enter Quantity & Estimated Price
+    selected_supplier_name = st.selectbox("Select Supplier", supplier_options.keys())
+    selected_supplier_id = supplier_options[selected_supplier_name]
+
+    selected_item_names = st.multiselect("Select Items", item_options.keys())
+
     po_items = []
-    for item_name in selected_items:
+    for item_name in selected_item_names:
         item_id = item_options[item_name]
-        col1, col2, col3 = st.columns([2, 1, 1])
 
-        with col1:
-            st.image(items_df[items_df["itemid"] == item_id]["itempicture"].values[0], width=60)
+        st.write(f"**{item_name}**")
+        col_qty, col_price = st.columns(2)
 
-        with col2:
-            quantity = st.number_input(f"Quantity for {item_name}", min_value=1, step=1, key=f"qty_{item_id}")
+        quantity = col_qty.number_input(f"Quantity ({item_name})", min_value=1, step=1, key=f"qty_{item_id}")
+        estimated_price = col_price.number_input(f"Estimated Price ({item_name}) (Optional)", min_value=0.0, step=0.01, key=f"price_{item_id}")
 
-        with col3:
-            estimated_price = st.number_input(f"Est. Price for {item_name}", min_value=0.0, step=0.1, key=f"price_{item_id}")
+        po_items.append({
+            "item_id": item_id,
+            "quantity": quantity,
+            "estimated_price": estimated_price if estimated_price > 0 else None
+        })
 
-        po_items.append({"item_id": item_id, "quantity": quantity, "estimated_price": estimated_price})
-
-    # ✅ Step 4: Create PO
-    if st.button("📩 Create Purchase Order"):
-        if not selected_supplier or not po_items:
-            st.error("❌ Please select a supplier and at least one item.")
-            return
-
-        supplier_id = supplier_options[selected_supplier]
-
-        # ✅ Insert Purchase Order & Link Items
-        po_id = po_handler.create_manual_po(supplier_id, po_items)
-        if po_id:
-            st.success(f"✅ Purchase Order {po_id} created successfully!")
+    if st.button("Submit Purchase Order"):
+        if not po_items:
+            st.error("❌ Please select at least one item.")
         else:
-            st.error("❌ Error creating purchase order. Please try again.")
+            po_id = po_handler.create_manual_po(selected_supplier_id, po_items)
+            if po_id:
+                st.success(f"✅ Purchase Order #{po_id} created successfully!")
+            else:
+                st.error("❌ An error occurred while creating the PO. Please try again.")
