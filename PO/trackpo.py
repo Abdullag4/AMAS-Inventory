@@ -32,7 +32,7 @@ def track_po_tab():
         with st.expander(f"📦 Order {row['poid']} - {row['suppliername']} ({row['status']})"):
             st.write(f"**Order Date:** {row['orderdate']}")
             st.write(f"**Expected Delivery:** {row['expecteddelivery']}")
-            st.write(f"**Supplier Response Time:** {row['respondedat']}")
+            st.write(f"**Supplier Response Time:** {row['respondedat']}" if row['respondedat'] else "Not Responded Yet")
             st.write(f"**Status:** {row['status']}")
             st.write(f"**Item:** {row['itemnameenglish']} ({row['quantity']} units)")
             if row["itempicture"]:
