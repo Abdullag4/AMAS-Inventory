@@ -55,7 +55,7 @@ class POHandler(DatabaseManager):
         VALUES (%s, %s, %s, %s)
         """
         for item in items:
-            estimated_price = item.get("estimated_price") if "estimated_price" in item else None
+            estimated_price = item.get("estimated_price", None)  # ✅ Handle missing estimated price
             self.execute_command(query_poi, (po_id, item["item_id"], item["quantity"], estimated_price))
 
         return po_id
