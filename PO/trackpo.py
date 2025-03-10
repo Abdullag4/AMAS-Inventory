@@ -24,16 +24,13 @@ def track_po_tab():
     st.subheader("📋 **Purchase Orders Summary**")
     st.dataframe(summary_df, use_container_width=True, hide_index=True)
 
-    # ✅ Expandable section for detailed view per order
+    # ✅ Dropdown to select specific Purchase Order
     st.subheader("🔍 **Detailed Order Information**")
-
-    # Create dropdown based on PO ID
     selected_poid = st.selectbox(
         "🔽 Select a Purchase Order to view details",
         options=summary_df["PO ID"].tolist()
     )
 
-    # Filter details for selected PO
     selected_order_details = po_details[po_details["poid"] == selected_poid]
 
     if selected_order_details.empty:
@@ -70,4 +67,13 @@ def track_po_tab():
         else:
             cols[3].write("Price: N/A")
 
-    st.success("✅ Purchase Order details loaded successfully!")
+    # ✅ Button to mark as delivered
+    if order_info['status'] != 'Received':
+        st.write("---")
+        if st.button("📦 Mark as Delivered & Received"):
+            po_handler.update_po_status_to_received(selected_poid)
+            st.success(f"✅ Order #{selected_poid} marked as Delivered & Received.")
+            st.rerun()
+    else:
+        st.success("✅ This order has already been marked as Received.")
+
