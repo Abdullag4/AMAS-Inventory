@@ -1,12 +1,13 @@
 import streamlit as st
-import pandas as pd
 from PO.po_handler import POHandler
+from io import BytesIO
+import pandas as pd
 
 po_handler = POHandler()
 
 def track_po_tab():
     """Tab for tracking purchase orders."""
-    st.header("📋 Purchase Order Tracking")
+    st.header("🚚 Track Purchase Orders")
 
     # ✅ Fetch all purchase orders
     po_details = po_handler.get_all_purchase_orders()
@@ -15,41 +16,58 @@ def track_po_tab():
         st.info("ℹ️ No purchase orders found.")
         return
 
-    # ✅ Summary Table for Quick Overview
-    st.subheader("📊 Summary of Purchase Orders")
-    summary_df = po_details[["poid", "suppliername", "status", "expecteddelivery"]].drop_duplicates()
-    summary_df.columns = ["Order Number", "Supplier", "Status", "Expected Delivery"]
+    # ✅ Prepare summary table
+    summary_cols = ["poid", "suppliername", "status", "expecteddelivery"]
+    summary_df = po_details[summary_cols].drop_duplicates().reset_index(drop=True)
+    summary_df.columns = ["PO ID", "Supplier", "Status", "Expected Delivery"]
 
-    # ✅ Display Summary Table
-    st.dataframe(summary_df, use_container_width=True)
+    st.subheader("📋 **Purchase Orders Summary**")
+    st.dataframe(summary_df, use_container_width=True, hide_index=True)
 
-    # ✅ Expandable Section for Full Order Details
-    st.subheader("🚚 Track Purchase Orders")
-    
-    for po_id in summary_df["Order Number"]:
-        order_details = po_details[po_details["poid"] == po_id]
-        supplier_name = order_details["suppliername"].iloc[0]
-        status = order_details["status"].iloc[0]
-        expected_delivery = order_details["expecteddelivery"].iloc[0]
+    # ✅ Expandable section for detailed view per order
+    st.subheader("🔍 **Detailed Order Information**")
 
-        with st.expander(f"📦 Order {po_id} - {supplier_name} ({status})"):
-            st.write(f"**Order Date:** {order_details['orderdate'].iloc[0]}")
-            st.write(f"**Expected Delivery:** {expected_delivery}")
-            st.write(f"**Status:** {status}")
-            st.write(f"**Supplier Response Time:** {order_details['respondedat'].iloc[0] if pd.notna(order_details['respondedat'].iloc[0]) else 'Not Responded'}")
+    # Create dropdown based on PO ID
+    selected_poid = st.selectbox(
+        "🔽 Select a Purchase Order to view details",
+        options=summary_df["PO ID"].tolist()
+    )
 
-            # ✅ Display all items in this PO
-            st.write("### 📦 Ordered Items")
-            order_items = order_details[["itemnameenglish", "quantity", "estimatedprice", "itempicture"]]
+    # Filter details for selected PO
+    selected_order_details = po_details[po_details["poid"] == selected_poid]
 
-            for idx, row in order_items.iterrows():
-                cols = st.columns([1, 2, 2, 2])
-                if row["itempicture"]:
-                    cols[0].image(row["itempicture"], width=50)
-                else:
-                    cols[0].write("No Image")
-                cols[1].write(f"**{row['itemnameenglish']}**")
-                cols[2].write(f"📦 Quantity: {row['quantity']}")
-                cols[3].write(f"💰 Estimated Price: {row['estimatedprice'] if row['estimatedprice'] else 'Not Provided'}")
+    if selected_order_details.empty:
+        st.warning("⚠️ No details found for the selected order.")
+        return
 
-    st.success("✅ Purchase Order Tracking Loaded Successfully!")
+    order_info = selected_order_details.iloc[0]
+    st.write(f"### 📦 Order #{order_info['poid']} – {order_info['suppliername']}")
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("🗓️ Order Date", order_info['orderdate'].strftime("%Y-%m-%d"))
+    col2.metric("📅 Expected Delivery", order_info['expecteddelivery'].strftime("%Y-%m-%d"))
+    col3.metric("🚦 Status", order_info['status'])
+
+    if pd.notnull(order_info['respondedat']):
+        st.write(f"**Supplier Response Time:** {order_info['respondedat'].strftime('%Y-%m-%d %H:%M:%S')}")
+
+    st.write("---")
+
+    st.write("#### 📌 **Items in this Order:**")
+    for idx, item in selected_order_details.iterrows():
+        cols = st.columns([1, 4, 2, 2])
+
+        if item['itempicture']:
+            image_data = BytesIO(item['itempicture'])
+            cols[0].image(image_data, width=60)
+        else:
+            cols[0].write("No Image")
+
+        cols[1].write(f"**{item['itemnameenglish']}**")
+        cols[2].write(f"Qty: {item['quantity']}")
+        if pd.notnull(item['estimatedprice']):
+            cols[3].write(f"Price: ${item['estimatedprice']:.2f}")
+        else:
+            cols[3].write("Price: N/A")
+
+    st.success("✅ Purchase Order details loaded successfully!")
