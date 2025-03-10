@@ -8,7 +8,7 @@ class POHandler(DatabaseManager):
         """Fetch all purchase orders with item details, supplier name, and status."""
         query = """
         SELECT 
-            po.poid,  -- ✅ Ensure POID is correctly retrieved
+            po.poid,  
             po.orderdate, 
             po.expecteddelivery, 
             po.status,
