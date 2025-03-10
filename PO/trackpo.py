@@ -14,6 +14,9 @@ def track_po_tab():
         st.info("ℹ️ No purchase orders found.")
         return
 
+    # ✅ Convert column names to lowercase (fixes KeyError)
+    po_details.columns = po_details.columns.str.lower()
+
     # ✅ Convert item images for display
     if "itempicture" in po_details.columns:
         po_details["itempicture"] = po_details["itempicture"].apply(
@@ -26,12 +29,12 @@ def track_po_tab():
 
     # ✅ Expandable section for order details
     for idx, row in po_details.iterrows():
-        with st.expander(f"📦 Order {row['POID']} - {row['SupplierName']} ({row['Status']})"):
-            st.write(f"**Order Date:** {row['OrderDate']}")
-            st.write(f"**Expected Delivery:** {row['ExpectedDelivery']}")
-            st.write(f"**Supplier Response Time:** {row['RespondedAt']}")
-            st.write(f"**Status:** {row['Status']}")
-            st.write(f"**Item:** {row['ItemNameEnglish']} ({row['Quantity']} units)")
+        with st.expander(f"📦 Order {row['poid']} - {row['suppliername']} ({row['status']})"):
+            st.write(f"**Order Date:** {row['orderdate']}")
+            st.write(f"**Expected Delivery:** {row['expecteddelivery']}")
+            st.write(f"**Supplier Response Time:** {row['respondedat']}")
+            st.write(f"**Status:** {row['status']}")
+            st.write(f"**Item:** {row['itemnameenglish']} ({row['quantity']} units)")
             if row["itempicture"]:
                 st.image(row["itempicture"], width=100)
 
