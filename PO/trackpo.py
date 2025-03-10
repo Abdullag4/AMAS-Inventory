@@ -6,7 +6,7 @@ from io import BytesIO
 po_handler = POHandler()
 
 def track_po_tab():
-    """Tab for tracking purchase orders."""
+    """Tab for tracking purchase orders with dropdown selection."""
     st.header("🚚 Track Purchase Orders")
 
     # ✅ Fetch all purchase orders
@@ -16,31 +16,40 @@ def track_po_tab():
         st.info("ℹ️ No purchase orders found.")
         return
 
-    # ✅ Convert images to displayable format
+    # ✅ Create a dropdown for PO selection
+    po_options = {f"PO-{row['poid']} - {row['suppliername']} ({row['status']})": row['poid'] for _, row in po_details.iterrows()}
+    selected_po = st.selectbox("📜 Select a Purchase Order", list(po_options.keys()))
+
+    # ✅ Get the selected PO details
+    selected_po_id = po_options[selected_po]
+    selected_po_details = po_details[po_details["poid"] == selected_po_id]
+
+    # ✅ Function to convert images for display
     def image_to_display(img_data):
-        if img_data and isinstance(img_data, (bytes, memoryview)):  # ✅ Check if valid binary data
+        if img_data and isinstance(img_data, (bytes, memoryview)):  # ✅ Ensure valid binary data
             img_bytes = BytesIO(img_data).getvalue()  # ✅ Convert to bytes
             encoded = base64.b64encode(img_bytes).decode()  # ✅ Encode as Base64
             return f'<img src="data:image/png;base64,{encoded}" width="60">'
         return "No Image"
 
     # ✅ Apply image processing for display
-    if "itempicture" in po_details.columns:
-        po_details["itempicture"] = po_details["itempicture"].apply(image_to_display)
+    if "itempicture" in selected_po_details.columns:
+        selected_po_details["itempicture"] = selected_po_details["itempicture"].apply(image_to_display)
 
-    # ✅ Display purchase orders in a table
-    st.write("📋 **Purchase Orders Overview**")
-    st.dataframe(po_details.drop(columns=["itempicture"]), use_container_width=True)
+    # ✅ Display selected PO details
+    with st.expander(f"📦 Order {selected_po_details.iloc[0]['poid']} - {selected_po_details.iloc[0]['suppliername']} ({selected_po_details.iloc[0]['status']})"):
+        st.write(f"**Order Date:** {selected_po_details.iloc[0]['orderdate']}")
+        st.write(f"**Expected Delivery:** {selected_po_details.iloc[0]['expecteddelivery']}")
+        st.write(f"**Supplier Response Time:** {selected_po_details.iloc[0]['respondedat'] or 'Pending'}")
+        st.write(f"**Status:** {selected_po_details.iloc[0]['status']}")
 
-    # ✅ Expandable section for order details
-    for idx, row in po_details.iterrows():
-        with st.expander(f"📦 Order {row['poid']} - {row['suppliername']} ({row['status']})"):
-            st.write(f"**Order Date:** {row['orderdate']}")
-            st.write(f"**Expected Delivery:** {row['expecteddelivery']}")
-            st.write(f"**Supplier Response Time:** {row['respondedat'] or 'Pending'}")
-            st.write(f"**Status:** {row['status']}")
-            st.write(f"**Item:** {row['itemnameenglish']} ({row['quantity']} units)")
+        # ✅ Display ordered items
+        st.write("### 📦 Ordered Items:")
+        for idx, row in selected_po_details.iterrows():
+            cols = st.columns([1, 3, 1, 1])
+            cols[0].markdown(row["itempicture"], unsafe_allow_html=True) if row["itempicture"] != "No Image" else cols[0].write("No Image")
+            cols[1].write(f"**{row['itemnameenglish']}**")
+            cols[2].write(f"Qty: {row['quantity']}")
+            cols[3].write(f"Est. Price: {row['estimatedprice'] if row['estimatedprice'] else 'N/A'}")
 
-            # ✅ Display item image if available
-            if row["itempicture"] != "No Image":
-                st.markdown(row["itempicture"], unsafe_allow_html=True)
+    st.success("✅ Purchase Order Tracking Loaded Successfully!")
