@@ -1,10 +1,11 @@
 import streamlit as st
+import pandas as pd
 from PO.po_handler import POHandler
 
 po_handler = POHandler()
 
 def track_po_tab():
-    """Enhanced tab for tracking purchase orders with a summary table and detailed tracking."""
+    """Tab for tracking purchase orders."""
     st.header("📋 Purchase Order Tracking")
 
     # ✅ Fetch all purchase orders
@@ -14,46 +15,41 @@ def track_po_tab():
         st.info("ℹ️ No purchase orders found.")
         return
 
-    # ✅ Show Summary Table (Quick Overview)
-    st.subheader("📊 Overview of Purchase Orders")
-    summary_df = po_details.groupby(["poid", "suppliername", "status", "expecteddelivery"], as_index=False).agg(
-        order_date=("orderdate", "first")
-    )
+    # ✅ Summary Table for Quick Overview
+    st.subheader("📊 Summary of Purchase Orders")
+    summary_df = po_details[["poid", "suppliername", "status", "expecteddelivery"]].drop_duplicates()
+    summary_df.columns = ["Order Number", "Supplier", "Status", "Expected Delivery"]
 
-    # ✅ Reorder columns for better readability
-    summary_df = summary_df[["poid", "suppliername", "status", "expecteddelivery", "order_date"]]
-    summary_df.columns = ["PO Number", "Supplier", "Status", "Expected Delivery", "Order Date"]
-
+    # ✅ Display Summary Table
     st.dataframe(summary_df, use_container_width=True)
 
-    # ✅ Select PO to track
-    st.subheader("🚚 Track Purchase Order Details")
-    selected_poid = st.selectbox("📌 Select a Purchase Order", summary_df["PO Number"].unique())
+    # ✅ Expandable Section for Full Order Details
+    st.subheader("🚚 Track Purchase Orders")
+    
+    for po_id in summary_df["Order Number"]:
+        order_details = po_details[po_details["poid"] == po_id]
+        supplier_name = order_details["suppliername"].iloc[0]
+        status = order_details["status"].iloc[0]
+        expected_delivery = order_details["expecteddelivery"].iloc[0]
 
-    # ✅ Filter selected PO details
-    selected_po = po_details[po_details["poid"] == selected_poid]
+        with st.expander(f"📦 Order {po_id} - {supplier_name} ({status})"):
+            st.write(f"**Order Date:** {order_details['orderdate'].iloc[0]}")
+            st.write(f"**Expected Delivery:** {expected_delivery}")
+            st.write(f"**Status:** {status}")
+            st.write(f"**Supplier Response Time:** {order_details['respondedat'].iloc[0] if pd.notna(order_details['respondedat'].iloc[0]) else 'Not Responded'}")
 
-    if not selected_po.empty:
-        # ✅ Display General Information
-        order_info = selected_po.iloc[0]
-        st.write(f"**📑 Purchase Order #:** {order_info['poid']}")
-        st.write(f"**🏢 Supplier:** {order_info['suppliername']}")
-        st.write(f"**📅 Order Date:** {order_info['orderdate']}")
-        st.write(f"**🚀 Expected Delivery:** {order_info['expecteddelivery']}")
-        st.write(f"**📌 Status:** {order_info['status']}")
+            # ✅ Display all items in this PO
+            st.write("### 📦 Ordered Items")
+            order_items = order_details[["itemnameenglish", "quantity", "estimatedprice", "itempicture"]]
 
-        # ✅ Show Item Details
-        st.subheader("🛒 Items in Purchase Order")
-        for idx, row in selected_po.iterrows():
-            with st.expander(f"📦 {row['itemnameenglish']} ({row['quantity']} units)"):
-                st.write(f"**🔢 Item ID:** {row['itemid']}")
-                st.write(f"**📌 Ordered Quantity:** {row['quantity']} units")
-                st.write(f"**💰 Estimated Price:** {row['estimatedprice'] if row['estimatedprice'] else 'Not Provided'}")
-                
-                # ✅ Display image if available
+            for idx, row in order_items.iterrows():
+                cols = st.columns([1, 2, 2, 2])
                 if row["itempicture"]:
-                    st.image(row["itempicture"], width=120, caption=row["itemnameenglish"])
+                    cols[0].image(row["itempicture"], width=50)
                 else:
-                    st.write("🖼 No Image Available")
-        
-        st.success("✅ Purchase Order Tracking Loaded Successfully!")
+                    cols[0].write("No Image")
+                cols[1].write(f"**{row['itemnameenglish']}**")
+                cols[2].write(f"📦 Quantity: {row['quantity']}")
+                cols[3].write(f"💰 Estimated Price: {row['estimatedprice'] if row['estimatedprice'] else 'Not Provided'}")
+
+    st.success("✅ Purchase Order Tracking Loaded Successfully!")
