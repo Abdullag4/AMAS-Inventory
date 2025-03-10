@@ -1,5 +1,7 @@
 import streamlit as st
 from PO.po_handler import POHandler
+import base64
+from io import BytesIO
 
 po_handler = POHandler()
 
@@ -14,14 +16,17 @@ def track_po_tab():
         st.info("ℹ️ No purchase orders found.")
         return
 
-    # ✅ Convert column names to lowercase (fixes KeyError)
-    po_details.columns = po_details.columns.str.lower()
+    # ✅ Convert images to displayable format
+    def image_to_display(img_data):
+        if img_data and isinstance(img_data, (bytes, memoryview)):  # ✅ Check if valid binary data
+            img_bytes = BytesIO(img_data).getvalue()  # ✅ Convert to bytes
+            encoded = base64.b64encode(img_bytes).decode()  # ✅ Encode as Base64
+            return f'<img src="data:image/png;base64,{encoded}" width="60">'
+        return "No Image"
 
-    # ✅ Convert item images for display
+    # ✅ Apply image processing for display
     if "itempicture" in po_details.columns:
-        po_details["itempicture"] = po_details["itempicture"].apply(
-            lambda img: st.image(img, width=50) if img else "No Image"
-        )
+        po_details["itempicture"] = po_details["itempicture"].apply(image_to_display)
 
     # ✅ Display purchase orders in a table
     st.write("📋 **Purchase Orders Overview**")
@@ -32,10 +37,10 @@ def track_po_tab():
         with st.expander(f"📦 Order {row['poid']} - {row['suppliername']} ({row['status']})"):
             st.write(f"**Order Date:** {row['orderdate']}")
             st.write(f"**Expected Delivery:** {row['expecteddelivery']}")
-            st.write(f"**Supplier Response Time:** {row['respondedat']}" if row['respondedat'] else "Not Responded Yet")
+            st.write(f"**Supplier Response Time:** {row['respondedat'] or 'Pending'}")
             st.write(f"**Status:** {row['status']}")
             st.write(f"**Item:** {row['itemnameenglish']} ({row['quantity']} units)")
-            if row["itempicture"]:
-                st.image(row["itempicture"], width=100)
 
-    st.success("✅ Purchase Order Tracking Loaded Successfully!")
+            # ✅ Display item image if available
+            if row["itempicture"] != "No Image":
+                st.markdown(row["itempicture"], unsafe_allow_html=True)
