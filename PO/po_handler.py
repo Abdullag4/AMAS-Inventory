@@ -48,7 +48,7 @@ class POHandler(DatabaseManager):
         
         po_id = po_id_result[0]
 
-        query_poi = """
+        query_poid = """
         INSERT INTO PurchaseOrderItems (POID, ItemID, Quantity)
         VALUES (%s, %s, %s)
         """
