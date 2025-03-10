@@ -59,3 +59,12 @@ class POHandler(DatabaseManager):
             self.execute_command(query_poi, (po_id, item["item_id"], item["quantity"], estimated_price))
 
         return po_id
+
+    def update_po_status_to_received(self, poid):
+        """Marks a purchase order as Received."""
+        query = """
+        UPDATE PurchaseOrders
+        SET Status = 'Received', ActualDelivery = CURRENT_TIMESTAMP
+        WHERE POID = %s
+        """
+        self.execute_command(query, (poid,))
