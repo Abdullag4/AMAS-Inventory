@@ -17,7 +17,7 @@ def track_po_tab():
     # ✅ Convert item images for display
     if "itempicture" in po_details.columns:
         po_details["itempicture"] = po_details["itempicture"].apply(
-            lambda img: f'<img src="data:image/png;base64,{img}" width="50">' if img else "No Image"
+            lambda img: st.image(img, width=50) if img else "No Image"
         )
 
     # ✅ Display purchase orders in a table
@@ -29,7 +29,10 @@ def track_po_tab():
         with st.expander(f"📦 Order {row['POID']} - {row['SupplierName']} ({row['Status']})"):
             st.write(f"**Order Date:** {row['OrderDate']}")
             st.write(f"**Expected Delivery:** {row['ExpectedDelivery']}")
+            st.write(f"**Supplier Response Time:** {row['RespondedAt']}")
             st.write(f"**Status:** {row['Status']}")
             st.write(f"**Item:** {row['ItemNameEnglish']} ({row['Quantity']} units)")
             if row["itempicture"]:
                 st.image(row["itempicture"], width=100)
+
+    st.success("✅ Purchase Order Tracking Loaded Successfully!")
