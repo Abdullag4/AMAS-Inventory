@@ -4,15 +4,58 @@ from db_handler import DatabaseManager
 class ItemHandler(DatabaseManager):
     """Handles all item-related database interactions separately."""
 
-    # Item methods
+    # 1) Fetch items with explicit column renaming
     def get_items(self):
         query = """
-        SELECT ItemID, ItemNameEnglish, ItemNameKurdish, ClassCat, DepartmentCat, SectionCat,
-               FamilyCat, SubFamilyCat, ShelfLife, Threshold, AverageRequired, OriginCountry,
-               Manufacturer, Brand, Barcode, UnitType, Packaging, ItemPicture, CreatedAt, UpdatedAt
+        SELECT 
+            ItemID,
+            ItemNameEnglish,
+            ItemNameKurdish,
+            ClassCat,
+            DepartmentCat,
+            SectionCat,
+            FamilyCat,
+            SubFamilyCat,
+            ShelfLife,
+            Threshold,
+            AverageRequired,
+            OriginCountry,
+            Manufacturer,
+            Brand,
+            Barcode,
+            UnitType,
+            Packaging,
+            ItemPicture,
+            CreatedAt,
+            UpdatedAt
         FROM item
         """
-        return self.fetch_data(query)
+        df = self.fetch_data(query)
+
+        if not df.empty:
+            df.columns = [
+                "itemid",
+                "itemnameenglish",
+                "itemnamekurdish",
+                "classcat",
+                "departmentcat",
+                "sectioncat",
+                "familycat",
+                "subfamilycat",
+                "shelflife",
+                "threshold",
+                "averagerequired",
+                "origincountry",
+                "manufacturer",
+                "brand",
+                "barcode",
+                "unittype",
+                "packaging",
+                "itempicture",
+                "createdat",
+                "updatedat",
+            ]
+        return df
 
     def get_suppliers(self):
         query = "SELECT SupplierID, SupplierName FROM Supplier"
@@ -20,7 +63,8 @@ class ItemHandler(DatabaseManager):
 
     def get_item_suppliers(self, item_id):
         query = """
-        SELECT s.SupplierName FROM ItemSupplier isup
+        SELECT s.SupplierName 
+        FROM ItemSupplier isup
         JOIN Supplier s ON isup.SupplierID = s.SupplierID
         WHERE isup.ItemID = %s
         """
@@ -50,7 +94,7 @@ class ItemHandler(DatabaseManager):
         for supplier_id in supplier_ids:
             params.extend([item_id, supplier_id])
         query = f"""
-        INSERT INTO itemsupplier (itemid, supplierid) 
+        INSERT INTO ItemSupplier (ItemID, SupplierID) 
         VALUES {values}
         ON CONFLICT DO NOTHING
         """
@@ -76,7 +120,7 @@ class ItemHandler(DatabaseManager):
             insert_query = "INSERT INTO ItemSupplier (ItemID, SupplierID) VALUES (%s, %s)"
             self.execute_command(insert_query, (item_id, supplier_id))
 
-    # Dropdown methods explicitly added here:
+    # 2) Dropdown / Category mgmt
     def get_dropdown_values(self, section):
         query = "SELECT value FROM Dropdowns WHERE section = %s"
         df = self.fetch_data(query, (section,))
