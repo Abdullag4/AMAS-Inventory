@@ -52,7 +52,7 @@ def track_po_tab():
 
     st.write("#### 📌 **Items in this Order:**")
     for idx, item in selected_order_details.iterrows():
-        cols = st.columns([1, 4, 2, 2])
+        cols = st.columns([1, 4, 2, 2, 2])
 
         if item['itempicture']:
             image_data = BytesIO(item['itempicture'])
@@ -61,11 +61,13 @@ def track_po_tab():
             cols[0].write("No Image")
 
         cols[1].write(f"**{item['itemnameenglish']}**")
-        cols[2].write(f"Qty: {item['quantity']}")
+        cols[2].write(f"Ordered: {item['orderedquantity']}")
+        cols[3].write(f"Received: {item['receivedquantity']}")
+        
         if pd.notnull(item['estimatedprice']):
-            cols[3].write(f"Price: ${item['estimatedprice']:.2f}")
+            cols[4].write(f"Price: ${item['estimatedprice']:.2f}")
         else:
-            cols[3].write("Price: N/A")
+            cols[4].write("Price: N/A")
 
     # ✅ Button to mark as delivered
     if order_info['status'] != 'Received':
@@ -76,4 +78,3 @@ def track_po_tab():
             st.rerun()
     else:
         st.success("✅ This order has already been marked as Received.")
-
