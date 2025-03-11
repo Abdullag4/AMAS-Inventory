@@ -6,7 +6,12 @@ class ItemHandler(DatabaseManager):
 
     # Item methods
     def get_items(self):
-        query = "SELECT * FROM item"
+        query = """
+        SELECT ItemID, ItemNameEnglish, ItemNameKurdish, ClassCat, DepartmentCat, SectionCat,
+               FamilyCat, SubFamilyCat, ShelfLife, Threshold, AverageRequired, OriginCountry,
+               Manufacturer, Brand, Barcode, UnitType, Packaging, ItemPicture, CreatedAt, UpdatedAt
+        FROM item
+        """
         return self.fetch_data(query)
 
     def get_suppliers(self):
