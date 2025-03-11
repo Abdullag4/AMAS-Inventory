@@ -1,16 +1,18 @@
 import streamlit as st
 from PO.manualpo import manual_po_tab
-from PO.trackpo import track_po_tab  # ✅ Import PO Tracking tab
+from PO.trackpo import track_po_tab
+from PO.archivedpo import archived_po_tab  # ✅ Import new Archived PO tab
 
 def po_page():
-    """Main page for Purchase Order management with multiple tabs."""
     st.title("🛒 Purchase Order Management")
 
-    # ✅ Enable both Manual PO and Tracking PO tabs
-    tabs = st.tabs(["Manual PO", "Track PO"])
+    tabs = st.tabs(["Manual PO", "Track PO", "Archived PO"])  # ✅ Added Archived PO tab
 
-    with tabs[0]:  
+    with tabs[0]:
         manual_po_tab()  # ✅ Handles Manual PO Creation
 
-    with tabs[1]:  
+    with tabs[1]:
         track_po_tab()  # ✅ Handles Tracking of POs
+
+    with tabs[2]:
+        archived_po_tab()  # ✅ New Archived PO Tab
