@@ -10,8 +10,8 @@ class POHandler(DatabaseManager):
         SELECT 
             po.POID, po.OrderDate, po.ExpectedDelivery, po.Status, po.RespondedAt,
             s.SupplierName, 
-            poi.ItemID, i.ItemNameEnglish, poi.Quantity, poi.EstimatedPrice,
-            i.ItemPicture
+            poi.ItemID, i.ItemNameEnglish, poi.OrderedQuantity, poi.EstimatedPrice,
+            poi.ReceivedQuantity, i.ItemPicture
         FROM PurchaseOrders po
         JOIN Supplier s ON po.SupplierID = s.SupplierID
         JOIN PurchaseOrderItems poi ON po.POID = poi.POID
@@ -47,16 +47,16 @@ class POHandler(DatabaseManager):
         if not po_id_result:
             return None
         
-        po_id = po_id_result[0]  # ✅ Extract newly created POID
+        po_id = po_id_result[0]
 
         # ✅ Step 2: Insert into `PurchaseOrderItems` table
         query_poi = """
-        INSERT INTO PurchaseOrderItems (POID, ItemID, Quantity, EstimatedPrice)
-        VALUES (%s, %s, %s, %s)
+        INSERT INTO PurchaseOrderItems (POID, ItemID, OrderedQuantity, EstimatedPrice, ReceivedQuantity)
+        VALUES (%s, %s, %s, %s, %s)
         """
         for item in items:
-            estimated_price = item.get("estimated_price", None)  # ✅ Handle missing estimated price
-            self.execute_command(query_poi, (po_id, item["item_id"], item["quantity"], estimated_price))
+            estimated_price = item.get("estimated_price", None)
+            self.execute_command(query_poi, (po_id, item["item_id"], item["quantity"], estimated_price, 0))
 
         return po_id
 
@@ -68,3 +68,12 @@ class POHandler(DatabaseManager):
         WHERE POID = %s
         """
         self.execute_command(query, (poid,))
+
+    def update_received_quantity(self, poid, item_id, received_quantity):
+        """Update received quantity for specific item in a PO."""
+        query = """
+        UPDATE PurchaseOrderItems
+        SET ReceivedQuantity = %s
+        WHERE POID = %s AND ItemID = %s
+        """
+        self.execute_command(query, (received_quantity, poid, item_id))
