@@ -1,25 +1,55 @@
 import streamlit as st
 from PO.po_handler import POHandler
+from io import BytesIO
 
 po_handler = POHandler()
 
 def archived_po_tab():
-    """Tab for viewing archived (completed & rejected) purchase orders."""
-    st.header("📁 Archived Purchase Orders")
+    """Tab displaying archived (completed and rejected) purchase orders."""
+    st.header("📦 Archived Purchase Orders")
 
-    # ✅ Fetch Completed & Rejected Purchase Orders
-    completed_orders, rejected_orders = po_handler.get_archived_purchase_orders()
+    # Fetch all archived purchase orders
+    archived_orders = po_handler.get_archived_purchase_orders()
 
-    # ✅ Completed Orders Section
-    st.subheader("✅ Completed Purchase Orders")
-    if completed_orders.empty:
-        st.info("ℹ️ No completed orders yet.")
+    if archived_orders.empty:
+        st.info("ℹ️ No archived purchase orders found.")
+        return
+
+    completed_orders = archived_orders[archived_orders["status"] == "Completed"]
+    rejected_orders = archived_orders[archived_orders["status"] == "Rejected"]
+
+    st.subheader("✅ Completed Orders")
+    if not completed_orders.empty:
+        for poid, group in completed_orders.groupby("poid"):
+            order_info = group.iloc[0]
+            with st.expander(f"📦 PO #{poid} - {order_info['suppliername']}"):
+                st.write(f"**Order Date:** {order_info['orderdate']}")
+                st.write(f"**Delivered on:** {order_info['actualdelivery']}")
+                for idx, item in group.iterrows():
+                    cols = st.columns([1, 3, 2])
+                    if item['itempicture']:
+                        cols[0].image(BytesIO(item['itempicture']), width=50)
+                    else:
+                        cols[0].write("No Image")
+                    cols[1].write(f"{item['itemnameenglish']}")
+                    cols[2].write(f"Received: {item['receivedquantity']}")
     else:
-        st.dataframe(completed_orders, use_container_width=True)
+        st.info("No completed orders available.")
 
-    # ✅ Rejected Orders Section
-    st.subheader("❌ Rejected Purchase Orders")
-    if rejected_orders.empty:
-        st.info("ℹ️ No rejected orders yet.")
+    st.subheader("❌ Rejected Orders")
+    if not rejected_orders.empty:
+        for poid, group in rejected_orders.groupby("poid"):
+            order_info = group.iloc[0]
+            with st.expander(f"📦 PO #{poid} - {order_info['suppliername']}"):
+                st.write(f"**Order Date:** {order_info['orderdate']}")
+                st.write(f"**Rejected on:** {order_info['respondedat']}")
+                for idx, item in group.iterrows():
+                    cols = st.columns([1, 3, 2])
+                    if item['itempicture']:
+                        cols[0].image(BytesIO(item['itempicture']), width=50)
+                    else:
+                        cols[0].write("No Image")
+                    cols[1].write(f"{item['itemnameenglish']}")
+                    cols[2].write(f"Ordered: {item['orderedquantity']}")
     else:
-        st.dataframe(rejected_orders, use_container_width=True)
+        st.info("No rejected orders available.")
