@@ -7,68 +7,58 @@ from PO.po_handler import POHandler
 po_handler = POHandler()
 
 def auto_po_tab():
-    """Automatically generates purchase orders based on low-stock inventory, grouped by supplier."""
-    st.subheader("📦 Automatic Purchase Order – Per Supplier")
+    """
+    Automatically generates purchase orders based on low-stock inventory.
+    Groups items by supplier, letting the user generate a PO for each supplier individually.
+    """
+    st.subheader("📦 Automatic Purchase Order by Supplier")
 
-    # 1) Fetch items near reorder level
     low_stock_df = get_low_stock_items()
     if low_stock_df.empty:
         st.success("✅ All stock levels are sufficient. No purchase orders needed.")
         return
 
-    # 2) Group low-stock items by supplier
-    grouped_suppliers = low_stock_df.groupby("supplierid")
+    # If you want, you can set a single global date; 
+    # or let each supplier choose a separate date in each expander.
+    st.write("Below are items grouped by supplier. Generate POs as needed.")
 
-    # 3) For each supplier, show a table and a button to confirm
-    for supplier_id, group_df in grouped_suppliers:
-        supplier_name = group_df.iloc[0]["suppliername"]
-        st.write("---")
-        st.write(f"### Supplier: **{supplier_name}** (ID: {supplier_id})")
+    grouped = low_stock_df.groupby("supplierid")
 
-        # Show a small table of needed items for that supplier
-        st.dataframe(
-            group_df[["itemnameenglish", "currentquantity", "threshold", "neededquantity"]],
-            use_container_width=True
-        )
+    for supplier_id, group in grouped:
+        supplier_name = group.iloc[0]["suppliername"]
+        with st.expander(f"📦 Supplier: {supplier_name}"):
+            st.write("**Items needing reorder from this supplier:**")
+            st.dataframe(group[["itemnameenglish", "currentquantity", "threshold", "neededquantity"]], use_container_width=True)
 
-        # Let user set an expected delivery date for this supplier's items
-        exp_date = st.date_input(
-            f"📅 Expected Delivery Date (Supplier: {supplier_name})",
-            key=f"date_{supplier_id}"
-        )
+            # Let user choose ExpectedDelivery date for that supplier's PO
+            exp_date = st.date_input(
+                f"📅 Expected Delivery Date for {supplier_name}",
+                key=f"exp_date_{supplier_id}"
+            )
 
-        # When user clicks, create a PO specifically for this supplier
-        if st.button(f"Accept and Send PO to {supplier_name}", key=f"send_{supplier_id}"):
-            items_for_supplier = []
-            for _, row in group_df.iterrows():
-                items_for_supplier.append({
-                    "item_id": int(row["itemid"]),
-                    "quantity": int(row["neededquantity"]),
-                    "estimated_price": None
-                })
-            po_handler.create_manual_po(supplier_id, exp_date, items_for_supplier)
-            st.success(f"✅ Purchase Order created for supplier: {supplier_name}")
-            st.stop()  # Stop to refresh page after creation
-
-    st.info("No more suppliers below threshold to show.")
-
+            # Accept & Send Button for that supplier
+            if st.button(f"Accept & Send Order to {supplier_name}", key=f"send_{supplier_id}"):
+                # Build the list of items for this supplier
+                items_for_supplier = []
+                for _, row in group.iterrows():
+                    items_for_supplier.append({
+                        "item_id": int(row["itemid"]),
+                        "quantity": int(row["neededquantity"]),
+                        "estimated_price": None
+                    })
+                
+                po_handler.create_manual_po(supplier_id, exp_date, items_for_supplier)
+                st.success(f"✅ Purchase Order created for {supplier_name} successfully!")
+                st.stop()  # End execution so we refresh the page
 
 def get_low_stock_items():
     """
-    Retrieves items below threshold with needed quantity = averagerequired - currentquantity.
-    Grabs 1 default supplier for each item if possible.
-    Returns a DataFrame with columns:
-      - itemid
-      - itemnameenglish
-      - threshold
-      - averagerequired
-      - currentquantity
-      - neededquantity
-      - supplierid
-      - suppliername
+    Retrieves items below threshold with needed quantity = AverageRequired - CurrentQuantity.
+    Picks the first available supplier for each item. If no supplier, item is excluded.
+    Returns columns: itemid, itemnameenglish, currentquantity, threshold, neededquantity, supplierid, suppliername.
     """
 
-    # a) Gather item + inventory data
+    # 1) Get current quantity from Inventory
     query = """
     SELECT 
         i.ItemID AS itemid,
@@ -84,37 +74,38 @@ def get_low_stock_items():
     if df.empty:
         return pd.DataFrame()
 
-    # b) Filter items below threshold
+    # 2) Calculate needed quantity
     df["neededquantity"] = df["averagerequired"] - df["currentquantity"]
     df = df[df["neededquantity"] > 0].copy()
     if df.empty:
         return df
 
-    # c) Map each item to its first supplier
+    # 3) For each item, pick the first supplier
     supplier_map = get_first_supplier_for_items()
     df["supplierid"] = df["itemid"].map(supplier_map)
-    # Drop items that have no supplier
     df.dropna(subset=["supplierid"], inplace=True)
     df["supplierid"] = df["supplierid"].astype(int)
 
-    # d) Convert SupplierID -> SupplierName
-    supplier_df = po_handler.get_suppliers()
-    supplier_lookup = dict(zip(supplier_df["supplierid"], supplier_df["suppliername"]))
-    df["suppliername"] = df["supplierid"].map(supplier_lookup).fillna("No Supplier")
+    # 4) Convert SupplierID -> SupplierName
+    sup_df = po_handler.get_suppliers()
+    sup_lookup = dict(zip(sup_df["supplierid"], sup_df["suppliername"]))
+    df["suppliername"] = df["supplierid"].map(sup_lookup).fillna("No Supplier")
 
     return df
 
-
 def get_first_supplier_for_items():
     """
-    Returns { itemid: firstSupplierID } picking the first supplier from ItemSupplier if multiple.
+    Returns { itemid: firstSupplierID }.
+    If an item has multiple suppliers, picks the first. 
+    If none, item won't appear in final DF.
     """
-    supplier_df = po_handler.get_item_supplier_mapping()
-    first_supplier_map = {}
-    if not supplier_df.empty:
-        for row in supplier_df.itertuples():
+    mapping_df = po_handler.get_item_supplier_mapping()
+    first_map = {}
+    if not mapping_df.empty:
+        for row in mapping_df.itertuples():
+            # row.itemid, row.supplierid
             item_id = getattr(row, "itemid")
             sup_id = getattr(row, "supplierid")
-            if item_id not in first_supplier_map:
-                first_supplier_map[item_id] = sup_id
-    return first_supplier_map
+            if item_id not in first_map:
+                first_map[item_id] = sup_id
+    return first_map
