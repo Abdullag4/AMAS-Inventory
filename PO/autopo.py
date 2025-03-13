@@ -21,11 +21,11 @@ def auto_po_tab():
     # Let user pick an expected delivery date for the generated POs
     exp_date = st.date_input("📅 Expected Delivery Date")
 
+    # If user confirms, create POs grouped by supplier
     if st.button("Generate Purchase Orders"):
         create_auto_pos(low_stock_df, exp_date)
         st.success("✅ Automatic Purchase Orders created successfully!")
-        st.experimental_rerun()
-
+        st.stop()  # ✅ End execution to prevent further code from running, effectively refreshing the page
 
 def get_low_stock_items():
     """
@@ -41,8 +41,6 @@ def get_low_stock_items():
       - supplierid
       - suppliername
     """
-
-    # Fetch aggregated inventory quantity per item
     query = """
     SELECT 
         i.ItemID AS itemid,
@@ -59,9 +57,7 @@ def get_low_stock_items():
     if df.empty:
         return pd.DataFrame()
 
-    # Calculate how many are needed
     df["neededquantity"] = df["averagerequired"] - df["currentquantity"]
-    # Filter to keep only items with a positive needed quantity
     df = df[df["neededquantity"] > 0].copy()
     if df.empty:
         return df  # no low-stock items
@@ -69,7 +65,6 @@ def get_low_stock_items():
     # Attach a default supplier if available
     supplier_map = get_first_supplier_for_items()  # { itemid: firstSupplierID }
     df["supplierid"] = df["itemid"].map(supplier_map)
-    # Drop items with no supplier
     df.dropna(subset=["supplierid"], inplace=True)
     df["supplierid"] = df["supplierid"].astype(int)
 
@@ -79,7 +74,6 @@ def get_low_stock_items():
     df["suppliername"] = df["supplierid"].map(supplier_lookup).fillna("No Supplier")
 
     return df
-
 
 def get_first_supplier_for_items():
     """
@@ -94,7 +88,6 @@ def get_first_supplier_for_items():
             if item_id not in first_supplier_map:
                 first_supplier_map[item_id] = sup_id
     return first_supplier_map
-
 
 def create_auto_pos(low_stock_df, exp_date):
     """
@@ -111,5 +104,4 @@ def create_auto_pos(low_stock_df, exp_date):
                 "quantity": int(row["neededquantity"]),
                 "estimated_price": None
             })
-
         po_handler.create_manual_po(supplier_id, exp_date, items_for_supplier)
