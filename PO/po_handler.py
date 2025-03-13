@@ -5,7 +5,7 @@ class POHandler(DatabaseManager):
     """Handles all database interactions related to purchase orders."""
 
     def get_all_purchase_orders(self):
-        """Fetch all purchase orders with item details, supplier name, and status."""
+        """Fetch all active purchase orders with item details, supplier name, and status."""
         query = """
         SELECT 
             po.POID, po.OrderDate, po.ExpectedDelivery, po.Status, po.RespondedAt,
@@ -16,6 +16,24 @@ class POHandler(DatabaseManager):
         JOIN Supplier s ON po.SupplierID = s.SupplierID
         JOIN PurchaseOrderItems poi ON po.POID = poi.POID
         JOIN Item i ON poi.ItemID = i.ItemID
+        WHERE po.Status NOT IN ('Completed', 'Declined')  -- ✅ Only active orders
+        ORDER BY po.OrderDate DESC
+        """
+        return self.fetch_data(query)
+
+    def get_archived_purchase_orders(self):
+        """Fetch all completed & declined purchase orders."""
+        query = """
+        SELECT 
+            po.POID, po.OrderDate, po.ExpectedDelivery, po.Status, po.RespondedAt,
+            s.SupplierName, 
+            poi.ItemID, i.ItemNameEnglish, poi.OrderedQuantity, poi.EstimatedPrice,
+            poi.ReceivedQuantity, i.ItemPicture
+        FROM PurchaseOrders po
+        JOIN Supplier s ON po.SupplierID = s.SupplierID
+        JOIN PurchaseOrderItems poi ON po.POID = poi.POID
+        JOIN Item i ON poi.ItemID = i.ItemID
+        WHERE po.Status IN ('Completed', 'Declined')  -- ✅ Only archived orders
         ORDER BY po.OrderDate DESC
         """
         return self.fetch_data(query)
