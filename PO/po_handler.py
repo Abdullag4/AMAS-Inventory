@@ -8,7 +8,7 @@ class POHandler(DatabaseManager):
         """Fetch all active purchase orders with item details, supplier name, and status."""
         query = """
         SELECT 
-            po.POID, po.OrderDate, po.ExpectedDelivery, po.Status, po.RespondedAt,
+            po.POID, po.OrderDate, po.ExpectedDelivery, po.Status, po.RespondedAt, po.ActualDelivery,
             s.SupplierName, 
             poi.ItemID, i.ItemNameEnglish, poi.OrderedQuantity, poi.EstimatedPrice,
             poi.ReceivedQuantity, i.ItemPicture
@@ -22,10 +22,10 @@ class POHandler(DatabaseManager):
         return self.fetch_data(query)
 
     def get_archived_purchase_orders(self):
-        """Fetch all completed & declined purchase orders."""
+        """Fetch all completed & declined purchase orders, ensuring `ActualDelivery` is included."""
         query = """
         SELECT 
-            po.POID, po.OrderDate, po.ExpectedDelivery, po.Status, po.RespondedAt,
+            po.POID, po.OrderDate, po.ExpectedDelivery, po.Status, po.RespondedAt, po.ActualDelivery,
             s.SupplierName, 
             poi.ItemID, i.ItemNameEnglish, poi.OrderedQuantity, poi.EstimatedPrice,
             poi.ReceivedQuantity, i.ItemPicture
