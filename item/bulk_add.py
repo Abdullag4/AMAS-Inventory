@@ -55,12 +55,12 @@ def bulk_add_tab():
     # ✅ Upload section
     uploaded_file = st.file_uploader("📤 Upload Excel File", type=["xlsx"])
 
-    # ✅ Add "Upload File" button
+    # ✅ Process uploaded file
     if uploaded_file and st.button("📤 Upload File"):
         try:
             df = pd.read_excel(uploaded_file)
 
-            # ✅ Debug Step: Show uploaded file columns
+            # ✅ Debug: Show uploaded file columns
             st.write("📂 Uploaded File Columns:", df.columns.tolist())
 
             # ✅ Normalize column names to lowercase
@@ -76,14 +76,12 @@ def bulk_add_tab():
                 st.error(f"❌ Missing required columns: {', '.join(missing_columns)}")
                 return
 
-            # ✅ Convert numeric fields to Python integers
+            # ✅ Handle missing values in numeric fields before conversion
             for col in ["shelflife", "threshold", "averagerequired"]:
-                df[col] = df[col].astype(int)
+                df[col] = df[col].fillna(0).astype(int)  # ✅ Fill NaN with 0, then convert to int
 
-            # ✅ Fetch supplier data & debug
+            # ✅ Fetch supplier data
             supplier_df = item_handler.get_suppliers()
-            st.write("🔍 Supplier Table Data:", supplier_df)
-
             if supplier_df.empty or "suppliername" not in supplier_df.columns:
                 st.error("❌ 'SupplierName' column not found in supplier table. Check database structure.")
                 return
@@ -116,7 +114,7 @@ def bulk_add_tab():
 
                 # ✅ Convert item data (skip "suppliername" column)
                 item_data = {
-                    key: int(value) if isinstance(value, (np.int64, float)) else value
+                    key: value if not isinstance(value, float) or not np.isnan(value) else None  # ✅ Handle NaN
                     for key, value in row.items() if key != "suppliername"
                 }
 
