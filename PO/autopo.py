@@ -8,70 +8,41 @@ po_handler = POHandler()
 
 def auto_po_tab():
     """
-    Automatically generates purchase orders based on low-stock inventory.
-    Groups items by supplier, letting the user generate a PO for each supplier individually,
-    and shows item pictures in the table.
+    Automatically generates purchase orders based on low-stock inventory,
+    showing items in a single table with a 'Picture' column.
     """
-    st.subheader("📦 Automatic Purchase Order by Supplier")
+    st.subheader("📦 Automatic Purchase Order")
 
     low_stock_df = get_low_stock_items()
     if low_stock_df.empty:
         st.success("✅ All stock levels are sufficient. No purchase orders needed.")
         return
 
-    st.write("Below are items grouped by supplier. Generate POs as needed.")
-    grouped = low_stock_df.groupby("supplierid")
+    # Replace the raw binary with a simple icon or text for st.dataframe
+    low_stock_df["picture"] = low_stock_df["itempicture"].apply(
+        lambda img: "🖼️" if img else "No Image"
+    )
 
-    for supplier_id, group in grouped:
-        supplier_name = group.iloc[0]["suppliername"]
-        with st.expander(f"📦 Supplier: {supplier_name}"):
-            st.write(f"**Items needing reorder from this supplier:**")
-            
-            # Show each item with picture in a manual layout
-            for _, row in group.iterrows():
-                cols = st.columns([1, 3, 1, 1])
-                
-                # 1) Display item picture
-                if row["itempicture"] is not None:
-                    cols[0].image(BytesIO(row["itempicture"]), width=60)
-                else:
-                    cols[0].write("No Image")
-                
-                # 2) Display item name
-                cols[1].write(f"**{row['itemnameenglish']}**")
-                
-                # 3) Show current quantity & threshold
-                cols[2].write(f"Current: {row['currentquantity']}\nThreshold: {row['threshold']}")
-                
-                # 4) Show needed quantity
-                cols[3].write(f"Needed: {int(row['neededquantity'])}")
+    # Show the single table
+    st.write("The following items need restocking:")
+    st.dataframe(
+        low_stock_df[["picture", "itemnameenglish", "currentquantity", "threshold", "neededquantity", "suppliername"]],
+        use_container_width=True
+    )
 
-            # Let user choose ExpectedDelivery date for that supplier's PO
-            exp_date = st.date_input(
-                f"📅 Expected Delivery Date for {supplier_name}",
-                key=f"exp_date_{supplier_id}"
-            )
+    # Let user pick an expected delivery date
+    exp_date = st.date_input("📅 Expected Delivery Date")
 
-            # Accept & Send Button for that supplier
-            if st.button(f"Accept & Send Order to {supplier_name}", key=f"send_{supplier_id}"):
-                items_for_supplier = []
-                for _, row in group.iterrows():
-                    items_for_supplier.append({
-                        "item_id": int(row["itemid"]),
-                        "quantity": int(row["neededquantity"]),
-                        "estimated_price": None
-                    })
-                
-                po_handler.create_manual_po(supplier_id, exp_date, items_for_supplier)
-                st.success(f"✅ Purchase Order created for {supplier_name} successfully!")
-                st.stop()  # Refresh page after creating the PO
-
+    if st.button("Generate Purchase Orders"):
+        create_auto_pos(low_stock_df, exp_date)
+        st.success("✅ Automatic Purchase Orders created successfully!")
+        st.stop()
 
 def get_low_stock_items():
     """
     Retrieves items below threshold with needed quantity = AverageRequired - CurrentQuantity.
-    Picks the first supplier for each item if possible.
-    Returns a DF with columns:
+    If an item has no supplier, it won't appear.
+    Returns a DataFrame with columns:
       itemid, itemnameenglish, itempicture, currentquantity, threshold,
       neededquantity, supplierid, suppliername
     """
@@ -92,6 +63,7 @@ def get_low_stock_items():
     if df.empty:
         return pd.DataFrame()
 
+    # Calculate needed quantity
     df["neededquantity"] = df["averagerequired"] - df["currentquantity"]
     df = df[df["neededquantity"] > 0].copy()
     if df.empty:
@@ -123,3 +95,21 @@ def get_first_supplier_for_items():
             if item_id not in first_map:
                 first_map[item_id] = sup_id
     return first_map
+
+def create_auto_pos(low_stock_df, exp_date):
+    """
+    Groups items by 'supplierid', then creates one PO per supplier with item details.
+    Uses create_manual_po(supplier_id, exp_date, items_for_supplier).
+    """
+    grouped = low_stock_df.groupby("supplierid")
+
+    for supplier_id, group in grouped:
+        items_for_supplier = []
+        for _, row in group.iterrows():
+            items_for_supplier.append({
+                "item_id": int(row["itemid"]),
+                "quantity": int(row["neededquantity"]),
+                "estimated_price": None
+            })
+
+        po_handler.create_manual_po(supplier_id, exp_date, items_for_supplier)
