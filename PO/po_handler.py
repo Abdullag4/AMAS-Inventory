@@ -5,7 +5,7 @@ class POHandler(DatabaseManager):
     """Handles all database interactions related to purchase orders."""
 
     def get_all_purchase_orders(self):
-        """Fetch all active purchase orders (Pending, Accepted, Shipping, Received)."""
+        """Fetch all purchase orders with item details, supplier name, and status."""
         query = """
         SELECT 
             po.POID, po.OrderDate, po.ExpectedDelivery, po.Status, po.RespondedAt,
@@ -16,24 +16,6 @@ class POHandler(DatabaseManager):
         JOIN Supplier s ON po.SupplierID = s.SupplierID
         JOIN PurchaseOrderItems poi ON po.POID = poi.POID
         JOIN Item i ON poi.ItemID = i.ItemID
-        WHERE po.Status IN ('Pending', 'Accepted', 'Shipping', 'Received')
-        ORDER BY po.OrderDate DESC
-        """
-        return self.fetch_data(query)
-
-    def get_archived_purchase_orders(self):
-        """Fetch all archived (Completed, Rejected) purchase orders."""
-        query = """
-        SELECT 
-            po.POID, po.OrderDate, po.ExpectedDelivery, po.ActualDelivery, po.Status, po.RespondedAt,
-            s.SupplierName,
-            poi.ItemID, i.ItemNameEnglish, poi.OrderedQuantity, poi.ReceivedQuantity, poi.EstimatedPrice,
-            i.ItemPicture
-        FROM PurchaseOrders po
-        JOIN Supplier s ON po.SupplierID = s.SupplierID
-        JOIN PurchaseOrderItems poi ON po.POID = poi.POID
-        JOIN Item i ON poi.ItemID = i.ItemID
-        WHERE po.Status IN ('Completed', 'Rejected')
         ORDER BY po.OrderDate DESC
         """
         return self.fetch_data(query)
@@ -51,20 +33,28 @@ class POHandler(DatabaseManager):
         """
         return self.fetch_data(query)
 
+    def get_item_supplier_mapping(self):
+        """Fetch item-supplier relationships to filter items per supplier."""
+        query = "SELECT ItemID, SupplierID FROM ItemSupplier"
+        return self.fetch_data(query)
+
     def create_manual_po(self, supplier_id, expected_delivery, items):
         """Creates a manual purchase order and links selected items to it."""
+        
+        # ✅ Step 1: Insert into `PurchaseOrders` table
         query_po = """
         INSERT INTO PurchaseOrders (SupplierID, ExpectedDelivery)
         VALUES (%s, %s)
         RETURNING POID
         """
         po_id_result = self.execute_command_returning(query_po, (supplier_id, expected_delivery))
-
+        
         if not po_id_result:
             return None
-
+        
         po_id = po_id_result[0]
 
+        # ✅ Step 2: Insert into `PurchaseOrderItems` table
         query_poi = """
         INSERT INTO PurchaseOrderItems (POID, ItemID, OrderedQuantity, EstimatedPrice, ReceivedQuantity)
         VALUES (%s, %s, %s, %s, %s)
@@ -92,21 +82,3 @@ class POHandler(DatabaseManager):
         WHERE POID = %s AND ItemID = %s
         """
         self.execute_command(query, (received_quantity, poid, item_id))
-
-    def mark_po_as_completed(self, poid):
-        """Marks a purchase order as Completed."""
-        query = """
-        UPDATE PurchaseOrders
-        SET Status = 'Completed'
-        WHERE POID = %s
-        """
-        self.execute_command(query, (poid,))
-
-    def mark_po_as_rejected(self, poid):
-        """Marks a purchase order as Rejected."""
-        query = """
-        UPDATE PurchaseOrders
-        SET Status = 'Rejected', RespondedAt = CURRENT_TIMESTAMP
-        WHERE POID = %s
-        """
-        self.execute_command(query, (poid,))
