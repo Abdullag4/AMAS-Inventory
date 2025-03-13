@@ -11,8 +11,9 @@ def manual_po_tab():
     # ✅ Load suppliers and items
     suppliers_df = po_handler.get_suppliers()
     items_df = po_handler.get_items()
+    item_supplier_df = po_handler.get_item_supplier_mapping()  # ✅ Fetch item-supplier mapping
 
-    if suppliers_df.empty or items_df.empty:
+    if suppliers_df.empty or items_df.empty or item_supplier_df.empty:
         st.warning("⚠️ No suppliers or items available.")
         return
 
@@ -21,13 +22,21 @@ def manual_po_tab():
     selected_supplier_name = st.selectbox("🏢 Select Supplier", list(supplier_options.keys()))
     selected_supplier_id = supplier_options[selected_supplier_name]
 
+    # ✅ Filter items based on selected supplier
+    supplier_item_ids = item_supplier_df[item_supplier_df["supplierid"] == selected_supplier_id]["itemid"].tolist()
+    filtered_items_df = items_df[items_df["itemid"].isin(supplier_item_ids)]
+
+    if filtered_items_df.empty:
+        st.warning("⚠️ No items available for this supplier.")
+        return
+
     # ✅ Expected delivery date
     po_expected_delivery = st.date_input("📅 Expected Delivery Date", min_value=datetime.date.today())
 
     # ✅ Item selection with quantities & estimated prices
     st.write("### 🏷️ Select Items for Purchase Order")
-    
-    item_options = items_df.set_index("itemnameenglish")["itemid"].to_dict()
+
+    item_options = filtered_items_df.set_index("itemnameenglish")["itemid"].to_dict()
     selected_item_names = st.multiselect("🛒 Select Items", list(item_options.keys()))
 
     po_items = []
