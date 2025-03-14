@@ -5,55 +5,53 @@ from reports.report_handler import ReportHandler
 report_handler = ReportHandler()
 
 def sup_performance_tab():
-    """Supplier Performance Report."""
+    """Tab for Supplier Performance Analysis."""
     st.header("📊 Supplier Performance Report")
 
-    # ✅ Fetch purchase order data to analyze supplier performance
-    po_data = report_handler.get_supplier_performance_data()
+    # ✅ Fetch supplier performance data
+    data = report_handler.get_supplier_performance()
 
-    if po_data.empty:
-        st.info("ℹ️ No purchase orders available for analysis.")
+    if data.empty:
+        st.warning("⚠️ No supplier performance data available.")
         return
 
-    # ✅ Calculate Supplier Performance Metrics
-    po_data["DelayDays"] = (po_data["ActualDelivery"] - po_data["ExpectedDelivery"]).dt.days
-    po_data["OnTime"] = po_data["DelayDays"] <= 0
-    po_data["QuantityMatch"] = po_data["OrderedQuantity"] == po_data["ReceivedQuantity"]
+    # ✅ Calculate performance metrics
+    data["On-Time Delivery Rate"] = (data["ontimedeliveries"] / data["totalorders"]).fillna(0) * 100
+    data["Quantity Accuracy Rate"] = (data["correctquantityorders"] / data["totalorders"]).fillna(0) * 100
 
-    # ✅ Aggregate Supplier Performance
-    supplier_performance = po_data.groupby("SupplierName").agg(
-        TotalOrders=("POID", "count"),
-        OnTimeDeliveries=("OnTime", "sum"),
-        AccurateOrders=("QuantityMatch", "sum"),
-        AvgDelayDays=("DelayDays", "mean"),
-    ).reset_index()
+    # ✅ Format displayed table
+    display_data = data[[
+        "suppliername",
+        "totalorders",
+        "ontimedeliveries",
+        "latedeliveries",
+        "avglatedays",
+        "quantitymismatchorders",
+        "On-Time Delivery Rate",
+        "Quantity Accuracy Rate"
+    ]].rename(columns={
+        "suppliername": "Supplier",
+        "totalorders": "Total Orders",
+        "ontimedeliveries": "On-Time Deliveries",
+        "latedeliveries": "Late Deliveries",
+        "avglatedays": "Avg Late Days",
+        "quantitymismatchorders": "Qty Mismatch Orders"
+    })
 
-    # ✅ Calculate Rates
-    supplier_performance["OnTimeRate"] = (supplier_performance["OnTimeDeliveries"] / supplier_performance["TotalOrders"]) * 100
-    supplier_performance["AccuracyRate"] = (supplier_performance["AccurateOrders"] / supplier_performance["TotalOrders"]) * 100
-    supplier_performance["AvgDelayDays"] = supplier_performance["AvgDelayDays"].fillna(0).round(2)
-
-    # ✅ Display the Report
+    # ✅ Display summary table
     st.subheader("📋 Supplier Performance Overview")
-    st.write("This report evaluates suppliers based on their **on-time delivery and accuracy**.")
+    st.dataframe(display_data.style.format({
+        "Avg Late Days": "{:.1f}",
+        "On-Time Delivery Rate": "{:.1f}%",
+        "Quantity Accuracy Rate": "{:.1f}%"
+    }), use_container_width=True)
 
-    # ✅ Show summary table
-    st.dataframe(
-        supplier_performance[["SupplierName", "TotalOrders", "OnTimeRate", "AccuracyRate", "AvgDelayDays"]],
-        use_container_width=True
-    )
-
-    # ✅ Highlight worst-performing suppliers
-    st.subheader("⚠️ Suppliers with Low Performance")
-    low_performance = supplier_performance[
-        (supplier_performance["OnTimeRate"] < 80) | (supplier_performance["AccuracyRate"] < 80)
-    ]
-
+    # ✅ Highlight underperforming suppliers
+    low_performance = data[(data["On-Time Delivery Rate"] < 80) | (data["Quantity Accuracy Rate"] < 80)]
     if not low_performance.empty:
-        st.warning("🚨 The following suppliers have **low performance**:")
-        st.dataframe(
-            low_performance[["SupplierName", "OnTimeRate", "AccuracyRate", "AvgDelayDays"]],
-            use_container_width=True
-        )
-    else:
-        st.success("✅ All suppliers are performing well!")
+        st.subheader("⚠️ Underperforming Suppliers")
+        st.error("These suppliers have low reliability scores:")
+        st.dataframe(low_performance[["suppliername", "On-Time Delivery Rate", "Quantity Accuracy Rate"]])
+
+    # ✅ Success Message
+    st.success("✅ Report generated successfully!")
