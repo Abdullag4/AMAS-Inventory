@@ -4,6 +4,20 @@ from reports.report_handler import ReportHandler
 
 report_handler = ReportHandler()
 
+def format_delay(hours):
+    """Converts hours into a standard format (Days + Hours)."""
+    if pd.isna(hours) or hours <= 0:
+        return "On Time"  # ✅ Delivered on time
+    days = int(hours // 24)
+    remaining_hours = int(hours % 24)
+
+    if days > 0 and remaining_hours > 0:
+        return f"{days}d {remaining_hours}hr"
+    elif days > 0:
+        return f"{days}d"
+    else:
+        return f"{remaining_hours}hr"
+
 def sup_performance_tab():
     """Tab for Supplier Performance Analysis."""
     st.header("📊 Supplier Performance Report")
@@ -18,6 +32,7 @@ def sup_performance_tab():
     # ✅ Calculate performance metrics
     data["On-Time Delivery Rate"] = (data["ontimedeliveries"] / data["totalorders"]).fillna(0) * 100
     data["Quantity Accuracy Rate"] = (data["correctquantityorders"] / data["totalorders"]).fillna(0) * 100
+    data["Formatted Late Time"] = data["avglatehours"].apply(format_delay)
 
     # ✅ Format displayed table
     display_data = data[[
@@ -25,7 +40,7 @@ def sup_performance_tab():
         "totalorders",
         "ontimedeliveries",
         "latedeliveries",
-        "avglatedays",
+        "Formatted Late Time",
         "quantitymismatchorders",
         "On-Time Delivery Rate",
         "Quantity Accuracy Rate"
@@ -34,14 +49,13 @@ def sup_performance_tab():
         "totalorders": "Total Orders",
         "ontimedeliveries": "On-Time Deliveries",
         "latedeliveries": "Late Deliveries",
-        "avglatedays": "Avg Late Days",
+        "Formatted Late Time": "Avg Late Time",
         "quantitymismatchorders": "Qty Mismatch Orders"
     })
 
     # ✅ Display summary table
     st.subheader("📋 Supplier Performance Overview")
     st.dataframe(display_data.style.format({
-        "Avg Late Days": "{:.1f}",
         "On-Time Delivery Rate": "{:.1f}%",
         "Quantity Accuracy Rate": "{:.1f}%"
     }), use_container_width=True)
