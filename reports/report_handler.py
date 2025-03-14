@@ -13,7 +13,7 @@ class ReportHandler(DatabaseManager):
             COUNT(po.POID) AS TotalOrders,
             SUM(CASE WHEN po.ActualDelivery <= po.ExpectedDelivery THEN 1 ELSE 0 END) AS OnTimeDeliveries,
             SUM(CASE WHEN po.ActualDelivery > po.ExpectedDelivery THEN 1 ELSE 0 END) AS LateDeliveries,
-            AVG(GREATEST(0, DATE_PART('day', po.ActualDelivery - po.ExpectedDelivery))) AS AvgLateDays,
+            AVG(EXTRACT(EPOCH FROM (po.ActualDelivery - po.ExpectedDelivery)) / 3600) AS AvgLateHours,  
             SUM(CASE WHEN poi.ReceivedQuantity = poi.OrderedQuantity THEN 1 ELSE 0 END) AS CorrectQuantityOrders,
             SUM(CASE WHEN poi.ReceivedQuantity <> poi.OrderedQuantity THEN 1 ELSE 0 END) AS QuantityMismatchOrders
         FROM PurchaseOrders po
