@@ -24,3 +24,18 @@ class ReportHandler(DatabaseManager):
         ORDER BY OnTimeDeliveries DESC;
         """
         return self.fetch_data(query)
+
+    def get_near_expiry_items(self):
+        """Fetch items expiring within the next 30 days."""
+        query = """
+        SELECT 
+            i.ItemNameEnglish, 
+            inv.Quantity, 
+            inv.ExpirationDate, 
+            inv.StorageLocation
+        FROM Inventory inv
+        JOIN Item i ON inv.ItemID = i.ItemID
+        WHERE inv.ExpirationDate BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'
+        ORDER BY inv.ExpirationDate ASC;
+        """
+        return self.fetch_data(query)
