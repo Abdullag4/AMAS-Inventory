@@ -5,38 +5,52 @@ from reports.report_handler import ReportHandler
 report_handler = ReportHandler()
 
 def near_expiry_tab():
-    """Tab displaying items that are close to expiration."""
+    """Tab displaying items that are near expiry."""
     st.header("⏳ Items Near Expiry")
 
-    # ✅ Allow user to set expiry threshold (Default: 30 days)
-    days_threshold = st.slider("⚠️ Show items expiring in the next X days:", min_value=7, max_value=90, value=30)
+    # ✅ Fetch near-expiry items (within 30 days)
+    near_expiry_data = report_handler.get_near_expiry_items()
 
-    # ✅ Fetch data
-    expiry_data = report_handler.get_items_near_expiry(days_threshold)
-
-    if expiry_data.empty:
-        st.success("✅ No items are nearing expiry! Inventory is in good condition.")
+    if near_expiry_data.empty:
+        st.success("✅ No items are near expiry!")
         return
 
-    # ✅ Format the table
-    expiry_data["DaysToExpiry"] = expiry_data["daystoexpiry"].apply(lambda x: f"{x} days" if x > 0 else "Expiring Today! ⚠️")
+    # ✅ Format date for better readability
+    near_expiry_data["ExpirationDate"] = pd.to_datetime(near_expiry_data["expirationdate"]).dt.strftime("%Y-%m-%d")
 
-    # ✅ Display the data
-    st.subheader(f"📋 Items Expiring in the Next {days_threshold} Days")
-    st.dataframe(
-        expiry_data[["itemnameenglish", "currentstock", "expirationdate", "DaysToExpiry", "storagelocation"]].rename(columns={
-            "itemnameenglish": "Item Name",
-            "currentstock": "Stock",
-            "expirationdate": "Expiry Date",
-            "storagelocation": "Location"
-        }),
-        use_container_width=True
+    # ✅ Calculate remaining days
+    near_expiry_data["DaysLeft"] = (
+        pd.to_datetime(near_expiry_data["expirationdate"]) - pd.Timestamp.today()
+    ).dt.days
+
+    # ✅ Select only required columns
+    display_data = near_expiry_data[[
+        "itemnameenglish",
+        "quantity",
+        "ExpirationDate",
+        "DaysLeft",
+        "storagelocation"
+    ]].rename(columns={
+        "itemnameenglish": "Item",
+        "quantity": "Available Quantity",
+        "ExpirationDate": "Expiry Date",
+        "DaysLeft": "Days Left",
+        "storagelocation": "Storage Location"
+    })
+
+    # ✅ Highlight critical expiry items (<7 days)
+    st.subheader("⚠️ Items Expiring Soon")
+    st.dataframe(display_data.style.apply(
+        lambda row: ["background-color: #ffcccc" if row["Days Left"] < 7 else "" for _ in row],
+        axis=1
+    ), use_container_width=True)
+
+    # ✅ Option to export report
+    st.download_button(
+        label="📥 Download Expiry Report",
+        data=display_data.to_csv(index=False),
+        file_name="Items_Near_Expiry.csv",
+        mime="text/csv"
     )
-
-    # ✅ Highlight Critical Items
-    expiring_soon = expiry_data[expiry_data["daystoexpiry"] <= 7]
-    if not expiring_soon.empty:
-        st.warning("⚠️ **Critical Expiry Warning!** Some items expire in the next 7 days.")
-        st.dataframe(expiring_soon[["itemnameenglish", "expirationdate", "storagelocation"]])
 
     st.success("✅ Report generated successfully!")
