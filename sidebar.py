@@ -18,11 +18,11 @@ def sidebar():
 
         # ✅ Navigation Buttons
         nav_buttons = {
-            "🏠 Home": "Home",
-            "📦 Items": "Item",
-            "📥 Receive Items": "Receive Items",
-            "🛒 Purchase Order": "Purchase Order",
-            "📊 Reports": "Reports"
+            "Home": "Home",
+            "Items": "Item",
+            "Receive Items": "Receive Items",
+            "Purchase Order": "Purchase Order",
+            "Reports": "Reports"
         }
 
         # Initialize the page in session state
