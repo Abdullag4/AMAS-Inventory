@@ -2,32 +2,37 @@ import streamlit as st
 import os
 
 def sidebar():
-    """Handles sidebar navigation with buttons and logo."""
-
+    """Handles sidebar navigation with a logo and button navigation."""
+    
     # ✅ Define logo path
     logo_path = "assets/logo.png"
 
-    # ✅ Sidebar Layout
+    # ✅ Sidebar Layout with Logo
     with st.sidebar:
         if os.path.exists(logo_path):
             st.image(logo_path, use_container_width=True)
         else:
             st.warning("⚠️ Logo not found! Please add 'assets/logo.png'.")
 
-        # ✅ Sidebar Buttons for Navigation
-        col1, col2 = st.columns(2)
-        
-        if col1.button("🏠 Home"):
-            return "Home"
-        if col2.button("📦 Item"):
-            return "Item"
-        
-        if col1.button("📥 Receive Items"):
-            return "Receive Items"
-        if col2.button("🛒 Purchase Order"):
-            return "Purchase Order"
+        st.divider()
 
-        if st.button("📊 Reports", use_container_width=True):
-            return "Reports"
+        # ✅ Navigation Buttons
+        nav_buttons = {
+            "🏠 Home": "Home",
+            "📦 Items": "Item",
+            "📥 Receive Items": "Receive Items",
+            "🛒 Purchase Order": "Purchase Order",
+            "📊 Reports": "Reports"
+        }
 
-    return None
+        # Initialize the page in session state
+        if "selected_page" not in st.session_state:
+            st.session_state.selected_page = "Home"
+
+        # Display buttons and handle navigation
+        for label, page in nav_buttons.items():
+            if st.button(label, use_container_width=True, type="primary" if st.session_state.selected_page == page else "secondary"):
+                st.session_state.selected_page = page
+                st.rerun()
+
+    return st.session_state.selected_page
