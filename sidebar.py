@@ -2,10 +2,8 @@ import streamlit as st
 
 def sidebar():
     """Handles sidebar navigation and returns the selected page."""
-    st.sidebar.title("📌 Navigation")
-
-    page = st.sidebar.radio("Go to", [
+    page = st.sidebar.radio("", [  # ✅ Removed extra labels for a cleaner look
         "Home", "Item", "Receive Items", "Purchase Order", "Reports"
-    ])  # ✅ Navigation options
+    ])
 
     return page  # ✅ Return selected page
