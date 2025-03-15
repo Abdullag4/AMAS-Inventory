@@ -14,9 +14,9 @@ def sidebar():
         else:
             st.warning("⚠️ Logo not found! Please add 'assets/logo.png'.")
 
-    # ✅ Sidebar Navigation
-    page = st.sidebar.radio("", [
-        "Home", "Item", "Receive Items", "Purchase Order", "Reports"
-    ])
+        # ✅ Sidebar Navigation with Tabs
+        page = st.selectbox("📌 Select Page", [
+            "Home", "Item", "Receive Items", "Purchase Order", "Reports"
+        ])
 
     return page  # ✅ Return selected page
