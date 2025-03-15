@@ -2,7 +2,7 @@ import streamlit as st
 import home
 from item import mainitem
 import PO.mainpo as mainpo
-from receive_items import main_receive
+from receive_items.main_receive import main_receive_page
 import reports.main_reports as main_reports
 from sidebar import sidebar  # ✅ Import sidebar function
 
