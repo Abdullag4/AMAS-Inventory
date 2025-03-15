@@ -17,6 +17,6 @@ def item_page():
     with tab3:
         edit_item_tab()
     with tab4:
-        mdropdowns_tab()
+        dropdowns_tab()
     with tab5:
         add_pictures_tab()  # ✅ New Tab for Adding Pictures
