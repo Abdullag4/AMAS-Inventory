@@ -1,10 +1,17 @@
 import streamlit as st
+import os
 
 def sidebar():
     """Handles sidebar navigation with a logo."""
-    
-    # ✅ Add logo above the sidebar
-    st.sidebar.image("assets/logo.png", use_column_width=True)  # Adjust path if needed
+
+    # ✅ Define logo path
+    logo_path = "assets/logo.png"
+
+    # ✅ Check if file exists before displaying
+    if os.path.exists(logo_path):
+        st.sidebar.image(logo_path, use_column_width=True)
+    else:
+        st.sidebar.warning("⚠️ Logo not found! Please add 'assets/logo.png'.")
 
     # ✅ Sidebar Navigation (cleaner version)
     page = st.sidebar.radio("", [
