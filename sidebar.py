@@ -1,4 +1,8 @@
- """Handles sidebar navigation with a logo."""
+import streamlit as st
+import os
+
+def sidebar():
+    """Handles sidebar navigation with a logo."""
 
     # ✅ Define logo path
     logo_path = "assets/logo.png"
