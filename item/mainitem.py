@@ -2,7 +2,7 @@ import streamlit as st
 from item.add_item import add_item_tab
 from item.bulk_add import bulk_add_tab
 from item.edit_item import edit_item_tab
-from item.manage_dropdowns import manage_dropdowns_tab
+from item.dropdowns import dropdowns_tab
 from item.add_pictures import add_pictures_tab  # ✅ New Import
 
 def item_page():
@@ -17,6 +17,6 @@ def item_page():
     with tab3:
         edit_item_tab()
     with tab4:
-        manage_dropdowns_tab()
+        mdropdowns_tab()
     with tab5:
         add_pictures_tab()  # ✅ New Tab for Adding Pictures
