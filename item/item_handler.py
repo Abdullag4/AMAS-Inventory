@@ -112,3 +112,22 @@ class ItemHandler(DatabaseManager):
         """Deletes a value from dropdown categories."""
         query = "DELETE FROM Dropdowns WHERE section = %s AND value = %s"
         self.execute_command(query, (section, value))
+
+    # ✅ Methods for "Add Pictures" Tab
+    def get_items_without_pictures(self):
+        """Fetch items without pictures."""
+        query = """
+        SELECT ItemID, ItemNameEnglish
+        FROM Item
+        WHERE ItemPicture IS NULL OR length(ItemPicture) = 0
+        """
+        return self.fetch_data(query)
+
+    def update_item_picture(self, item_id, picture_data):
+        """Update item picture in database."""
+        query = """
+        UPDATE Item
+        SET ItemPicture = %s, UpdatedAt = CURRENT_TIMESTAMP
+        WHERE ItemID = %s
+        """
+        self.execute_command(query, (picture_data, item_id))
