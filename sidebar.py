@@ -1,38 +1,29 @@
 import streamlit as st
-import os
 
 def sidebar():
-    """Handles sidebar navigation with a logo and button navigation."""
+    """Handles sidebar navigation based on user permissions."""
     
-    # ✅ Define logo path
-    logo_path = "assets/logo.png"
+    st.sidebar.image("assets/logo.png", use_container_width=True)
+    
+    # Logout button
+    if st.sidebar.button("🔓 Log Out", on_click=st.logout):
+        st.rerun()
 
-    # ✅ Sidebar Layout with Logo
-    with st.sidebar:
-        if os.path.exists(logo_path):
-            st.image(logo_path, use_container_width=True)
-        else:
-            st.warning("⚠️ Logo not found! Please add 'assets/logo.png'.")
+    # Fetch user permissions
+    permissions = st.session_state.get("permissions", {})
 
-        st.divider()
+    # Show buttons based on permissions
+    if permissions.get("CanAccessHome", False) and st.sidebar.button("🏠 Home"):
+        return "Home"
+    if permissions.get("CanAccessItems", False) and st.sidebar.button("📦 Item Management"):
+        return "Item"
+    if permissions.get("CanAccessReceive", False) and st.sidebar.button("📥 Receive Items"):
+        return "Receive Items"
+    if permissions.get("CanAccessPO", False) and st.sidebar.button("🛒 Purchase Order"):
+        return "Purchase Order"
+    if permissions.get("CanAccessReports", False) and st.sidebar.button("📊 Reports"):
+        return "Reports"
+    if st.session_state.get("user_role") == "Admin" and st.sidebar.button("⚙️ User Management"):
+        return "User Management"
 
-        # ✅ Navigation Buttons
-        nav_buttons = {
-            "Home": "Home",
-            "Items": "Item",
-            "Receive Items": "Receive Items",
-            "Purchase Order": "Purchase Order",
-            "Reports": "Reports"
-        }
-
-        # Initialize the page in session state
-        if "selected_page" not in st.session_state:
-            st.session_state.selected_page = "Home"
-
-        # Display buttons and handle navigation
-        for label, page in nav_buttons.items():
-            if st.button(label, use_container_width=True, type="primary" if st.session_state.selected_page == page else "secondary"):
-                st.session_state.selected_page = page
-                st.rerun()
-
-    return st.session_state.selected_page
+    return None
