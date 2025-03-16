@@ -6,7 +6,7 @@ from receive_items.main_receive import main_receive_page
 import reports.main_reports as main_reports
 from sidebar import sidebar
 from admin.user_management import user_management
-from inv_signin import authenticate
+from inv_signin import authenticate_user, logout
 
 st.set_page_config(page_title="Inventory Management System", layout="wide")
 
