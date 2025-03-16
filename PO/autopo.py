@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import datetime
 from PO.po_handler import POHandler
 
 po_handler = POHandler()
@@ -25,10 +26,12 @@ def auto_po_tab():
                 use_container_width=True
             )
 
-            exp_date = st.date_input(
-                f"📅 Expected Delivery Date for {supplier_name}",
-                key=f"exp_date_{supplier_id}"
-            )
+            st.write(f"### 📅 Expected Delivery Date & Time for {supplier_name}")
+            col_date, col_time = st.columns(2)
+            delivery_date = col_date.date_input("Select Date", key=f"date_{supplier_id}", min_value=datetime.date.today())
+            delivery_time = col_time.time_input("Select Time", key=f"time_{supplier_id}", value=datetime.time(9, 0))
+
+            exp_datetime = datetime.datetime.combine(delivery_date, delivery_time)
 
             if st.button(f"Accept & Send Order to {supplier_name}", key=f"send_{supplier_id}"):
                 items_for_supplier = []
@@ -39,7 +42,7 @@ def auto_po_tab():
                         "estimated_price": None
                     })
                 created_by = st.session_state.get("user_email", "Unknown")
-                po_handler.create_manual_po(supplier_id, exp_date, items_for_supplier, created_by)
+                po_handler.create_manual_po(supplier_id, exp_datetime, items_for_supplier, created_by)
                 st.success(f"✅ Purchase Order created for {supplier_name} successfully by {created_by}!")
                 st.stop()
 
