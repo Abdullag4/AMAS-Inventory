@@ -1,13 +1,11 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-from io import BytesIO
 from PO.po_handler import POHandler
 
 po_handler = POHandler()
 
 def auto_po_tab():
-    """Automatically generates purchase orders based on low-stock inventory, strictly if currentquantity < threshold."""
+    """Automatically generates purchase orders based on low-stock inventory."""
     st.subheader("📦 Automatic Purchase Order by Supplier")
 
     low_stock_df = get_low_stock_items()
@@ -40,17 +38,12 @@ def auto_po_tab():
                         "quantity": int(row["neededquantity"]),
                         "estimated_price": None
                     })
-                po_handler.create_manual_po(supplier_id, exp_date, items_for_supplier)
-                st.success(f"✅ Purchase Order created for {supplier_name} successfully!")
+                created_by = st.session_state.get("user_email", "Unknown")
+                po_handler.create_manual_po(supplier_id, exp_date, items_for_supplier, created_by)
+                st.success(f"✅ Purchase Order created for {supplier_name} successfully by {created_by}!")
                 st.stop()
 
 def get_low_stock_items():
-    """
-    1) Only reorder items if currentquantity < threshold.
-    2) neededquantity = averagerequired - currentquantity.
-    3) Must have an available supplier.
-    """
-    # 1) Load item + aggregated inventory
     query = """
     SELECT 
         i.ItemID AS itemid,
@@ -66,25 +59,20 @@ def get_low_stock_items():
     if df.empty:
         return pd.DataFrame()
 
-    # 2) Keep only items with currentquantity < threshold
     df = df[df["currentquantity"] < df["threshold"]].copy()
     if df.empty:
         return df
 
-    # 3) Calculate neededquantity
     df["neededquantity"] = df["averagerequired"] - df["currentquantity"]
-    # If, by chance, neededquantity ends up negative or zero, skip
     df = df[df["neededquantity"] > 0].copy()
     if df.empty:
         return df
 
-    # 4) Attach 1 default supplier if available
     supplier_map = get_first_supplier_for_items()
     df["supplierid"] = df["itemid"].map(supplier_map)
     df.dropna(subset=["supplierid"], inplace=True)
     df["supplierid"] = df["supplierid"].astype(int)
 
-    # 5) Convert SupplierID -> SupplierName
     sup_df = po_handler.get_suppliers()
     sup_lookup = dict(zip(sup_df["supplierid"], sup_df["suppliername"]))
     df["suppliername"] = df["supplierid"].map(sup_lookup).fillna("No Supplier")
@@ -92,7 +80,6 @@ def get_low_stock_items():
     return df
 
 def get_first_supplier_for_items():
-    """Find the first supplier for each item from the ItemSupplier table."""
     mapping_df = po_handler.get_item_supplier_mapping()
     first_map = {}
     if not mapping_df.empty:
