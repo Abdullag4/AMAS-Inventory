@@ -8,21 +8,18 @@ def manual_po_tab():
     """Tab for creating manual purchase orders."""
     st.header("📝 Create Manual Purchase Order")
 
-    # ✅ Load suppliers and items
     suppliers_df = po_handler.get_suppliers()
     items_df = po_handler.get_items()
-    item_supplier_df = po_handler.get_item_supplier_mapping()  # ✅ Fetch item-supplier mapping
+    item_supplier_df = po_handler.get_item_supplier_mapping()
 
     if suppliers_df.empty or items_df.empty or item_supplier_df.empty:
         st.warning("⚠️ No suppliers or items available.")
         return
 
-    # ✅ Supplier selection
     supplier_options = suppliers_df.set_index("suppliername")["supplierid"].to_dict()
     selected_supplier_name = st.selectbox("🏢 Select Supplier", list(supplier_options.keys()))
     selected_supplier_id = supplier_options[selected_supplier_name]
 
-    # ✅ Filter items based on selected supplier
     supplier_item_ids = item_supplier_df[item_supplier_df["supplierid"] == selected_supplier_id]["itemid"].tolist()
     filtered_items_df = items_df[items_df["itemid"].isin(supplier_item_ids)]
 
@@ -30,12 +27,9 @@ def manual_po_tab():
         st.warning("⚠️ No items available for this supplier.")
         return
 
-    # ✅ Expected delivery date
     po_expected_delivery = st.date_input("📅 Expected Delivery Date", min_value=datetime.date.today())
 
-    # ✅ Item selection with quantities & estimated prices
     st.write("### 🏷️ Select Items for Purchase Order")
-
     item_options = filtered_items_df.set_index("itemnameenglish")["itemid"].to_dict()
     selected_item_names = st.multiselect("🛒 Select Items", list(item_options.keys()))
 
@@ -43,7 +37,6 @@ def manual_po_tab():
     for item_name in selected_item_names:
         item_id = item_options[item_name]
 
-        # ✅ Display item details
         st.write(f"**{item_name}**")
         col_qty, col_price = st.columns(2)
         
@@ -56,13 +49,13 @@ def manual_po_tab():
             "estimated_price": estimated_price if estimated_price > 0 else None
         })
 
-    # ✅ Create Purchase Order button
     if st.button("📤 Submit Purchase Order"):
         if not po_items:
             st.error("❌ Please select at least one item.")
         else:
-            po_id = po_handler.create_manual_po(selected_supplier_id, po_expected_delivery, po_items)
+            created_by = st.session_state.get("user_email", "Unknown")
+            po_id = po_handler.create_manual_po(selected_supplier_id, po_expected_delivery, po_items, created_by)
             if po_id:
-                st.success(f"✅ Purchase Order #{po_id} created successfully!")
+                st.success(f"✅ Purchase Order #{po_id} created successfully by {created_by}!")
             else:
                 st.error("❌ Failed to create purchase order. Please try again.")
