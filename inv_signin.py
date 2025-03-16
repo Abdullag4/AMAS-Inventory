@@ -9,11 +9,14 @@ def authenticate():
         st.button("🔑 Log in with Google", on_click=st.login)
         st.stop()
 
-    # Get user info
     user_email = st.experimental_user.email
     user_name = st.experimental_user.name
 
-    # Check if user exists
+    # Save user details in session_state clearly
+    st.session_state["user_email"] = user_email
+    st.session_state["user_name"] = user_name
+
+    # Check if user exists in the database
     query = "SELECT * FROM Users WHERE Email = %s"
     user_df = db.fetch_data(query, (user_email,))
 
@@ -25,10 +28,13 @@ def authenticate():
         """
         db.execute_command(insert_query, (user_name, user_email))
         st.session_state["permissions"] = {
-            "CanAccessHome": True, "CanAccessItems": False,
-            "CanAccessReceive": False, "CanAccessPO": False,
+            "CanAccessHome": True,
+            "CanAccessItems": False,
+            "CanAccessReceive": False,
+            "CanAccessPO": False,
             "CanAccessReports": False
         }
+        st.session_state["user_role"] = "User"
     else:
         # Existing user → Fetch permissions
         user_info = user_df.iloc[0]
@@ -39,3 +45,8 @@ def authenticate():
             "CanAccessPO": user_info["canaccesspo"],
             "CanAccessReports": user_info["canaccessreports"]
         }
+        st.session_state["user_role"] = user_info["role"]
+
+def logout():
+    """Handles user logout."""
+    st.logout()
