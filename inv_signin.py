@@ -1,52 +1,30 @@
 import streamlit as st
-from db_handler import DatabaseManager
 
-db = DatabaseManager()
+def sidebar():
+    """Handles sidebar navigation with logout button at the bottom."""
+    st.sidebar.image("assets/logo.png", use_container_width=True)
 
-def authenticate():
-    """Handles user authentication and retrieves access permissions."""
-    if not st.experimental_user.is_logged_in:
-        st.button("🔑 Log in with Google", on_click=st.login)
-        st.stop()
+    # Available pages
+    pages = ["Home", "Item", "Receive Items", "Purchase Order", "Reports"]
 
-    user_email = st.experimental_user.email
-    user_name = st.experimental_user.name
+    if st.session_state.get("user_role") == "Admin":
+        pages.append("User Management")
 
-    # Save user details in session_state clearly
-    st.session_state["user_email"] = user_email
-    st.session_state["user_name"] = user_name
+    # Initialize selected page if not already set
+    if "selected_page" not in st.session_state:
+        st.session_state.selected_page = pages[0]
 
-    # Check if user exists in the database
-    query = "SELECT * FROM Users WHERE Email = %s"
-    user_df = db.fetch_data(query, (user_email,))
+    # Create buttons for each page
+    for page in pages:
+        if st.sidebar.button(page, use_container_width=True):
+            st.session_state.selected_page = page
 
-    if user_df.empty:
-        # New user → Add them with default permissions
-        insert_query = """
-        INSERT INTO Users (Name, Email, Role)
-        VALUES (%s, %s, 'User')
-        """
-        db.execute_command(insert_query, (user_name, user_email))
-        st.session_state["permissions"] = {
-            "CanAccessHome": True,
-            "CanAccessItems": False,
-            "CanAccessReceive": False,
-            "CanAccessPO": False,
-            "CanAccessReports": False
-        }
-        st.session_state["user_role"] = "User"
-    else:
-        # Existing user → Fetch permissions
-        user_info = user_df.iloc[0]
-        st.session_state["permissions"] = {
-            "CanAccessHome": user_info["canaccesshome"],
-            "CanAccessItems": user_info["canaccessitems"],
-            "CanAccessReceive": user_info["canaccessreceive"],
-            "CanAccessPO": user_info["canaccesspo"],
-            "CanAccessReports": user_info["canaccessreports"]
-        }
-        st.session_state["user_role"] = user_info["role"]
+    # Spacer pushes logout to the bottom
+    st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
+    st.sidebar.markdown("<hr>", unsafe_allow_html=True)
+    
+    # Logout button at the bottom
+    if st.sidebar.button("🚪 Logout", use_container_width=True):
+        st.logout()
 
-def logout():
-    """Handles user logout."""
-    st.logout()
+    return st.session_state.selected_page
