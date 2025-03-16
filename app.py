@@ -23,7 +23,7 @@ def authenticate():
     if not st.session_state["authenticated"]:
         password, submit = login_form()
         if submit:
-            if password == st.secrets["amas2000"]:
+            if password == st.secrets["app_password"]:
                 st.session_state["authenticated"] = True
                 st.rerun()
             else:
