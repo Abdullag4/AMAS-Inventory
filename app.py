@@ -5,6 +5,8 @@ import PO.mainpo as mainpo
 from receive_items.main_receive import main_receive_page
 import reports.main_reports as main_reports
 from sidebar import sidebar
+from inv_signin import authenticate_user, logout
+
 
 st.set_page_config(page_title="Inventory Management System", layout="wide")
 
@@ -34,6 +36,14 @@ def authenticate():
 
 def main():
     if authenticate():
+        """Main entry point for the app."""
+    
+    # ✅ Authenticate user
+    user_info = authenticate_user()
+
+    # ✅ Sidebar with logout button
+    if st.sidebar.button("🔓 Logout"):
+        logout()
         page = sidebar()
 
         if page == "Home":
