@@ -27,7 +27,12 @@ def manual_po_tab():
         st.warning("⚠️ No items available for this supplier.")
         return
 
-    po_expected_delivery = st.date_input("📅 Expected Delivery Date", min_value=datetime.date.today())
+    st.write("### 📅 Expected Delivery Date and Time")
+    col_date, col_time = st.columns(2)
+    delivery_date = col_date.date_input("Select Date", min_value=datetime.date.today())
+    delivery_time = col_time.time_input("Select Time", value=datetime.time(9, 0))  # Default 9:00 AM
+
+    po_expected_delivery = datetime.datetime.combine(delivery_date, delivery_time)
 
     st.write("### 🏷️ Select Items for Purchase Order")
     item_options = filtered_items_df.set_index("itemnameenglish")["itemid"].to_dict()
