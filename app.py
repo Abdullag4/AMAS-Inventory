@@ -1,38 +1,37 @@
-import streamlit as st 
+import streamlit as st
 import home
 from item import mainitem
 import PO.mainpo as mainpo
 from receive_items.main_receive import main_receive_page
 import reports.main_reports as main_reports
 from sidebar import sidebar
-from inv_signin import authenticate_user, logout
+from admin.user_management import user_management
+from inv_signin import authenticate
 
 st.set_page_config(page_title="Inventory Management System", layout="wide")
 
 def main():
-    """Main entry point for the app."""
+    """Main function handling authentication and user access."""
+    authenticate()  # Verify login & fetch user permissions
 
-    # ✅ Authenticate user with Google login
-    user_info = authenticate_user()
+    page = sidebar()  # Get selected page
 
-    # ✅ Sidebar with logout button
-    if st.sidebar.button("🔓 Logout"):
-        logout()
+    permissions = st.session_state.get("permissions", {})
 
-    # ✅ Sidebar Navigation
-    page = sidebar()
-
-    # ✅ Route user to the selected page
-    if page == "Home":
+    if page == "Home" and permissions.get("CanAccessHome", False):
         home.home()
-    elif page == "Item":
+    elif page == "Item" and permissions.get("CanAccessItems", False):
         mainitem.item_page()
-    elif page == "Receive Items":
+    elif page == "Receive Items" and permissions.get("CanAccessReceive", False):
         main_receive_page()
-    elif page == "Purchase Order":
+    elif page == "Purchase Order" and permissions.get("CanAccessPO", False):
         mainpo.po_page()
-    elif page == "Reports":
+    elif page == "Reports" and permissions.get("CanAccessReports", False):
         main_reports.reports_page()
+    elif page == "User Management" and st.session_state.get("user_role") == "Admin":
+        user_management()
+    else:
+        st.error("❌ You do not have permission to access this page.")
 
 if __name__ == "__main__":
     main()
