@@ -52,7 +52,7 @@ class POHandler(DatabaseManager):
         return self.fetch_data(query)
 
     def create_manual_po(self, supplier_id, expected_delivery, items, created_by):
-        """Creates a manual purchase order and links selected items to it, recording who created it."""
+        """Creates a manual purchase order and links selected items to it, recording creator."""
         
         query_po = """
         INSERT INTO PurchaseOrders (SupplierID, ExpectedDelivery, CreatedBy)
@@ -91,19 +91,3 @@ class POHandler(DatabaseManager):
         WHERE POID = %s AND ItemID = %s
         """
         self.execute_command(query, (received_quantity, poid, item_id))
-
-    def get_archived_purchase_orders(self):
-        query = """
-        SELECT 
-            po.POID, po.OrderDate, po.ExpectedDelivery, po.Status, po.RespondedAt, po.ActualDelivery, po.CreatedBy,
-            s.SupplierName, 
-            poi.ItemID, i.ItemNameEnglish, poi.OrderedQuantity, poi.EstimatedPrice,
-            poi.ReceivedQuantity, i.ItemPicture
-        FROM PurchaseOrders po
-        JOIN Supplier s ON po.SupplierID = s.SupplierID
-        JOIN PurchaseOrderItems poi ON po.POID = poi.POID
-        JOIN Item i ON poi.ItemID = i.ItemID
-        WHERE po.Status IN ('Completed', 'Declined')
-        ORDER BY po.OrderDate DESC
-        """
-        return self.fetch_data(query)
