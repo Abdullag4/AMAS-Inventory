@@ -93,7 +93,7 @@ class ReceiveHandler(DatabaseManager):
         SET StorageLocation = %s
         WHERE ItemID = %s AND (StorageLocation IS NULL OR StorageLocation = '')
         """
-        self.execute_command(query, (new_location, int(item_id))
+        self.execute_command(query, (new_location, int(item_id)))
 
     def update_item_location_specific(self, item_id, expiration_date, new_location):
         """Updates the store location for a specific item with a specific expiration date."""
