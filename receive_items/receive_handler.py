@@ -54,3 +54,22 @@ class ReceiveHandler(DatabaseManager):
         WHERE POID = %s AND ItemID = %s
         """
         self.execute_command(query, (received_quantity, poid, item_id))
+
+def get_items_with_locations(self):
+    """Fetch items along with their store locations."""
+    query = """
+    SELECT i.ItemID, i.ItemNameEnglish, i.Barcode, COALESCE(SUM(inv.Quantity), 0) AS CurrentQuantity, i.StoreLocation
+    FROM Item i
+    LEFT JOIN Inventory inv ON i.ItemID = inv.ItemID
+    GROUP BY i.ItemID, i.ItemNameEnglish, i.Barcode, i.StoreLocation
+    """
+    return self.fetch_data(query)
+
+def update_item_location(self, item_id, new_location):
+    """Updates the store location of an item."""
+    query = """
+    UPDATE Item
+    SET StoreLocation = %s, UpdatedAt = CURRENT_TIMESTAMP
+    WHERE ItemID = %s
+    """
+    self.execute_command(query, (new_location, item_id))
