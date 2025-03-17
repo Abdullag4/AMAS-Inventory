@@ -14,7 +14,7 @@ def item_location_tab():
         st.success("✅ All items have assigned store locations!")
         return
 
-    # ✅ **Fix: Identify missing store locations properly (Empty OR Null)**
+    # ✅ Fix: Identify missing store locations properly (Empty OR Null)
     items_df["storelocation"] = items_df["storelocation"].replace("", pd.NA)  # Convert empty strings to NaN
     missing_location_df = items_df[items_df["storelocation"].isna()]  # Detect missing locations
 
@@ -38,10 +38,12 @@ def item_location_tab():
             if st.button("Assign Location"):
                 if location_input:
                     for item_name in selected_items:
-                        item_id = missing_location_df.loc[
-                            missing_location_df["itemnameenglish"] == item_name, "itemid"
-                        ].values[0]
-                        receive_handler.update_item_location(item_id, location_input)
+                        item_row = missing_location_df.loc[
+                            missing_location_df["itemnameenglish"] == item_name
+                        ]
+                        item_id = item_row["itemid"].values[0]
+                        expiration_date = item_row["expirationdate"].values[0]
+                        receive_handler.update_item_location(item_id, expiration_date, location_input)
                     st.success(f"✅ Location '{location_input}' assigned successfully!")
                     st.rerun()
                 else:
@@ -88,9 +90,7 @@ def item_location_tab():
     if st.button("Update Location"):
         if new_location and selected_expirations:
             for exp_date in selected_expirations:
-                receive_handler.update_item_location_specific(
-                    selected_item_id, exp_date, new_location
-                )
+                receive_handler.update_item_location(selected_item_id, exp_date, new_location)
             st.success(f"✅ Location updated for '{selected_item_name}'!")
             st.rerun()
         else:
