@@ -1,92 +1,81 @@
-from db_handler import DatabaseManager
+import streamlit as st
+import pandas as pd
+from receive_items.receive_handler import ReceiveHandler
 
-class ReceiveHandler(DatabaseManager):
-    """Handles database interactions for receiving items and item locations."""
+receive_handler = ReceiveHandler()
 
-    def get_received_pos(self):
-        """Fetch all POs with status 'Received' but not yet 'Completed'."""
-        query = """
-        SELECT po.POID, po.ExpectedDelivery, s.SupplierName
-        FROM PurchaseOrders po
-        JOIN Supplier s ON po.SupplierID = s.SupplierID
-        WHERE po.Status = 'Received'
-        """
-        return self.fetch_data(query)
+def item_location_tab():
+    """Tab for managing item store locations."""
+    st.header("📍 Item Store Locations")
 
-    def get_po_items(self, poid):
-        """Fetch items details for a specific PO."""
-        query = """
-        SELECT poi.ItemID, i.ItemNameEnglish, poi.OrderedQuantity, poi.ReceivedQuantity
-        FROM PurchaseOrderItems poi
-        JOIN Item i ON poi.ItemID = i.ItemID
-        WHERE poi.POID = %s
-        """
-        return self.fetch_data(query, (poid,))
+    # ✅ Fetch all items and their locations
+    items_df = receive_handler.get_items_with_locations_and_expirations()
 
-    def add_items_to_inventory(self, inventory_items):
-        """Insert received items into Inventory."""
-        query = """
-        INSERT INTO Inventory (ItemID, Quantity, ExpirationDate, StorageLocation, DateReceived)
-        VALUES (%s, %s, %s, %s, CURRENT_DATE)
-        """
-        for item in inventory_items:
-            self.execute_command(query, (
-                item["item_id"],
-                item["quantity"],
-                item["expiration_date"],
-                item["storage_location"]
-            ))
+    if items_df.empty:
+        st.success("✅ All items have assigned store locations!")
+        return
 
-    def mark_po_completed(self, poid):
-        """Update PO status to Completed after items added to inventory."""
-        query = """
-        UPDATE PurchaseOrders
-        SET Status = 'Completed'
-        WHERE POID = %s
-        """
-        self.execute_command(query, (poid,))
+    # ✅ Section 1: Items without a location
+    st.subheader("⚠️ Items Without Store Location")
+    missing_location_df = items_df[items_df["storelocation"].isna()]
 
-    def update_received_quantity(self, poid, item_id, received_quantity):
-        """Update the actual received quantity in PurchaseOrderItems."""
-        query = """
-        UPDATE PurchaseOrderItems
-        SET ReceivedQuantity = %s
-        WHERE POID = %s AND ItemID = %s
-        """
-        self.execute_command(query, (received_quantity, poid, item_id))
+    if not missing_location_df.empty:
+        st.write("These items have no assigned store location:")
+        st.dataframe(missing_location_df[["itemnameenglish", "barcode", "currentquantity", "expirationdate"]], use_container_width=True)
 
-    def get_items_with_locations_and_expirations(self):
-        """Fetch items along with their current inventory locations and expiration dates."""
-        query = """
-        SELECT 
-            i.ItemID as itemid,
-            i.ItemNameEnglish as itemnameenglish,
-            i.Barcode as barcode,
-            inv.StorageLocation as storelocation,
-            inv.ExpirationDate as expirationdate,
-            COALESCE(SUM(inv.Quantity), 0) as currentquantity
-        FROM Item i
-        LEFT JOIN Inventory inv ON i.ItemID = inv.ItemID
-        GROUP BY i.ItemID, i.ItemNameEnglish, i.Barcode, inv.StorageLocation, inv.ExpirationDate
-        ORDER BY i.ItemNameEnglish, inv.ExpirationDate
-        """
-        return self.fetch_data(query)
+        # ✅ Assign location
+        st.write("### 📍 Assign Store Locations")
+        selected_items = st.multiselect("Select items to assign location", missing_location_df["itemnameenglish"].tolist())
 
-    def update_item_location_specific(self, item_id, expiration_date, new_location):
-        """Update storage location for an item with a specific expiration date."""
-        query = """
-        UPDATE Inventory
-        SET StorageLocation = %s
-        WHERE ItemID = %s AND ExpirationDate = %s
-        """
-        self.execute_command(query, (new_location, item_id, expiration_date))
+        if selected_items:
+            location_input = st.text_input("Enter new location:")
+            if st.button("Assign Location"):
+                if location_input:
+                    for item_name in selected_items:
+                        item_rows = missing_location_df[missing_location_df["itemnameenglish"] == item_name]
+                        for _, item_row in item_rows.iterrows():
+                            receive_handler.update_item_location_specific(
+                                item_row["itemid"],
+                                item_row["expirationdate"],
+                                location_input
+                            )
+                    st.success(f"✅ Location '{location_input}' assigned to selected items!")
+                    st.rerun()
+                else:
+                    st.error("❌ Please enter a location before assigning.")
 
-    # Existing method retained (useful for assigning bulk locations)
-    def update_item_location(self, item_id, new_location):
-        """Update item location across all inventory records."""
-        query = """
-        UPDATE Inventory
-        SET StorageLocation = %s
-        WHERE ItemID = %s
-        """
-        self.execute_command(query, (new_location, item_id))
+    else:
+        st.success("✅ No items without store location.")
+
+    # ✅ Section 2: Edit Existing Locations
+    st.subheader("📝 Update Store Locations")
+    assigned_location_df = items_df[~items_df["storelocation"].isna()]
+
+    if not assigned_location_df.empty:
+        st.write("Modify existing store locations:")
+        item_options = dict(zip(assigned_location_df["itemnameenglish"], assigned_location_df["itemid"]))
+        selected_item_name = st.selectbox("Select item to edit location", list(item_options.keys()))
+        selected_item_id = item_options[selected_item_name]
+
+        item_expirations_df = assigned_location_df[assigned_location_df["itemid"] == selected_item_id].copy()
+        item_expirations_df["expirationdate"] = pd.to_datetime(item_expirations_df["expirationdate"]).dt.strftime('%Y-%m-%d')
+
+        st.write("**Available quantities and expiration dates:**")
+        st.dataframe(item_expirations_df, use_container_width=True)
+
+        # Select specific expiration dates to update
+        expiration_dates = item_expirations_df["expirationdate"].tolist()
+        selected_expirations = st.multiselect("Select expiration dates to update", expiration_dates)
+
+        new_location = st.text_input("Enter new store location:")
+
+        if st.button("Update Location"):
+            if new_location and selected_expirations:
+                for exp_date in selected_expirations:
+                    receive_handler.update_item_location_specific(selected_item_id, exp_date, new_location)
+                st.success(f"✅ Store location updated for '{selected_item_name}'!")
+                st.rerun()
+            else:
+                st.error("❌ Please select expiration dates and enter a valid location.")
+    else:
+        st.info("ℹ️ No items currently have store locations.")
