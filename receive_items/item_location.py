@@ -5,66 +5,88 @@ from receive_items.receive_handler import ReceiveHandler
 receive_handler = ReceiveHandler()
 
 def item_location_tab():
-    """Tab for managing item store locations."""
+    """Tab for managing item store locations with expiration-date specificity."""
     st.header("📍 Item Store Locations")
 
-    # Fetch items currently in inventory with locations
-    items_df = receive_handler.get_items_with_locations()
+    items_df = receive_handler.get_items_with_locations_and_expirations()
 
     if items_df.empty:
         st.success("✅ All items have assigned store locations!")
         return
 
-    # ✅ Section 1: Items without a location
-    st.subheader("⚠️ Items Without Store Location")
+    # ✅ Section 1: Items Without Store Location
     missing_location_df = items_df[items_df["storelocation"].isna()]
-
     if not missing_location_df.empty:
-        st.write("These items have no assigned store location:")
-        st.dataframe(missing_location_df[["itemnameenglish", "barcode", "currentquantity"]], use_container_width=True)
+        st.subheader("⚠️ Items Without Store Location")
+        st.dataframe(
+            missing_location_df[["itemnameenglish", "barcode", "currentquantity"]],
+            use_container_width=True
+        )
 
-        selected_items = st.multiselect("Select items to assign location", missing_location_df["itemnameenglish"].tolist())
-        new_location = st.text_input("Enter store location:", key="new_loc")
+        selected_items = st.multiselect(
+            "Select items to assign location", 
+            missing_location_df["itemnameenglish"].tolist()
+        )
 
-        if st.button("Assign Location"):
-            if new_location:
-                for item_name in selected_items:
-                    item_id = missing_location_df.loc[missing_location_df["itemnameenglish"] == item_name, "itemid"].values[0]
-                    receive_handler.update_item_location(item_id, new_location)
-                st.success("✅ Locations assigned successfully!")
-                st.experimental_rerun()
-            else:
-                st.warning("❌ Please enter a location.")
-
+        if selected_items:
+            location_input = st.text_input("Enter new location:")
+            if st.button("Assign Location"):
+                if location_input:
+                    for item_name in selected_items:
+                        item_id = missing_location_df.loc[
+                            missing_location_df["itemnameenglish"] == item_name, "itemid"
+                        ].values[0]
+                        receive_handler.update_item_location(item_id, location_input)
+                    st.success(f"✅ Location '{location_input}' assigned successfully!")
+                    st.rerun()
+                else:
+                    st.error("❌ Please enter a location before assigning.")
     else:
-        st.success("✅ All items currently have store locations!")
+        st.success("✅ No items without store location.")
 
-    # Section for editing locations
+    # ✅ Section 2: Update Store Locations by Expiration Date
     st.subheader("📝 Update Store Locations")
+    existing_location_df = items_df.dropna(subset=["storelocation"])
 
-    inventory_items_df = items_df[~items_df["storelocation"].isna()]
+    if existing_location_df.empty:
+        st.info("ℹ️ No items currently have store locations.")
+        return
 
-    if not inventory_items_df.empty:
-        item_to_edit = st.selectbox("Select item to edit location", inventory_items_df["itemnameenglish"].unique())
+    item_options = existing_location_df.set_index("itemnameenglish")["itemid"].to_dict()
+    selected_item_name = st.selectbox("Select item to edit location", list(item_options.keys()))
+    selected_item_id = item_options[selected_item_name]
 
-        # Show current locations clearly before editing
-        current_locations_df = inventory_items_df[inventory_items_df["itemnameenglish"] == item_to_edit]
+    item_expirations_df = existing_location_df[existing_location_df["itemid"] == selected_item_id].copy()
 
-        st.write("**Current store locations:**")
-        st.dataframe(current_locations_df[["expirationdate", "storelocation", "currentquantity"]], use_container_width=True)
+    # ✅ Ensure ExpirationDate is datetime
+    item_expirations_df["expirationdate"] = pd.to_datetime(
+        item_expirations_df["expirationdate"], errors='coerce'
+    )
 
-        selected_expiration = st.multiselect("Select expiration dates to update", current_locations_df["expirationdate"].astype(str).tolist())
+    # ✅ Display current locations and expiration dates clearly
+    st.write(f"**Current locations for '{selected_item_name}':**")
+    st.dataframe(
+        item_expirations_df[["expirationdate", "storelocation", "currentquantity"]]
+        .rename(columns={
+            "expirationdate": "Expiration Date",
+            "storelocation": "Store Location",
+            "currentquantity": "Quantity"
+        }),
+        use_container_width=True
+    )
 
-        new_location = st.text_input("Enter new location")
+    expiration_dates = item_expirations_df["expirationdate"].dt.strftime('%Y-%m-%d').unique().tolist()
+    selected_expirations = st.multiselect("Select expiration dates to update", expiration_dates)
 
-        if st.button("Update Location"):
-            if new_location and selected_expirations:
-                for exp_date in selected_expirations:
-                    exp_date = pd.to_datetime(exp_date)
-                    receive_handler.update_item_location_by_expiration(item_to_edit, exp_date, new_location)
-                st.success("✅ Store locations updated successfully!")
-                st.experimental_rerun()
-            else:
-                st.warning("❌ Please select expiration dates and enter a new location.")
-    else:
-        st.info("ℹ️ No items available in inventory for editing locations.")
+    new_location = st.text_input("Enter new store location:", value="")
+
+    if st.button("Update Location"):
+        if new_location and selected_expirations:
+            for exp_date in selected_expirations:
+                receive_handler.update_item_location_specific(
+                    selected_item_id, exp_date, new_location
+                )
+            st.success(f"✅ Location updated for '{selected_item_name}'!")
+            st.rerun()
+        else:
+            st.error("❌ Please enter a valid location and select at least one expiration date.")
