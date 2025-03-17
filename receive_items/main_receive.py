@@ -6,7 +6,7 @@ from receive_items.item_location import item_location_tab
 def main_receive_page():
     st.title("📦 Receive Items Management")
 
-    tabs = st.tabs(["Manual Receive", "Received PO"])
+    tabs = st.tabs(["Manual Receive", "Received PO", "Item Locations"])
 
     with tabs[0]:
         receive_items()
