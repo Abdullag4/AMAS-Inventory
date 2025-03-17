@@ -80,3 +80,28 @@ class ReceiveHandler(DatabaseManager):
         WHERE ItemID = %s
         """
         self.execute_command(query, (new_location, item_id))
+    # ✅ Add this method to fetch items with location and expiration details
+    def get_items_with_locations_and_expirations(self):
+        query = """
+        SELECT 
+            i.ItemID as itemid,
+            i.ItemNameEnglish as itemnameenglish,
+            i.Barcode as barcode,
+            inv.StorageLocation as storelocation,
+            inv.ExpirationDate as expirationdate,
+            SUM(inv.Quantity) as currentquantity
+        FROM Item i
+        JOIN Inventory inv ON i.ItemID = inv.ItemID
+        GROUP BY i.ItemID, i.ItemNameEnglish, i.Barcode, inv.StorageLocation, inv.ExpirationDate
+        ORDER BY i.ItemNameEnglish, inv.ExpirationDate
+        """
+        return self.fetch_data(query)
+
+    # ✅ Add this method to update item location for specific expiration dates
+        def update_item_location_specific(self, item_id, expiration_date, new_location):
+        query = """
+        UPDATE Inventory
+        SET StorageLocation = %s
+        WHERE ItemID = %s AND ExpirationDate = %s
+        """
+        self.execute_command(query, (new_location, item_id, expiration_date))
