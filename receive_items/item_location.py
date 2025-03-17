@@ -14,12 +14,17 @@ def item_location_tab():
         st.success("✅ All items have assigned store locations!")
         return
 
+    # ✅ **Fix: Identify missing store locations properly (Empty OR Null)**
+    items_df["storelocation"] = items_df["storelocation"].replace("", pd.NA)  # Convert empty strings to NaN
+    missing_location_df = items_df[items_df["storelocation"].isna()]  # Detect missing locations
+
     # ✅ Section 1: Items Without Store Location
-    missing_location_df = items_df[items_df["storelocation"].isna()]
+    st.subheader("⚠️ Items Without Store Location")
+
     if not missing_location_df.empty:
-        st.subheader("⚠️ Items Without Store Location")
+        st.write("These items have no assigned store location:")
         st.dataframe(
-            missing_location_df[["itemnameenglish", "barcode", "currentquantity"]],
+            missing_location_df[["itemnameenglish", "barcode", "expirationdate", "currentquantity"]],
             use_container_width=True
         )
 
@@ -58,7 +63,7 @@ def item_location_tab():
 
     item_expirations_df = existing_location_df[existing_location_df["itemid"] == selected_item_id].copy()
 
-    # ✅ Ensure ExpirationDate is datetime & format as YYYY-MM-DD (removes time)
+    # ✅ Ensure ExpirationDate is formatted as YYYY-MM-DD
     item_expirations_df["expirationdate"] = pd.to_datetime(
         item_expirations_df["expirationdate"], errors='coerce'
     ).dt.strftime('%Y-%m-%d')
