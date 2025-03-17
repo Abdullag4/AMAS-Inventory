@@ -59,20 +59,34 @@ class ReceiveHandler(DatabaseManager):
         """Fetch all items with their storage locations and expiration dates."""
         query = """
         SELECT 
-            i.ItemID as itemid,
-            i.ItemNameEnglish as itemnameenglish,
-            i.Barcode as barcode,
-            inv.StorageLocation as storelocation,
-            inv.ExpirationDate as expirationdate,
-            SUM(inv.Quantity) AS currentquantity
+            i.ItemID AS itemid, 
+            i.ItemNameEnglish AS itemnameenglish, 
+            i.Barcode AS barcode,
+            COALESCE(inv.Quantity, 0) AS currentquantity,
+            inv.StorageLocation AS storelocation,
+            inv.ExpirationDate AS expirationdate
         FROM Item i
-        LEFT JOIN Inventory inv ON i.ItemID = inv.ItemID
-        GROUP BY i.ItemID, i.ItemNameEnglish, i.Barcode, inv.StorageLocation, inv.ExpirationDate
+        JOIN Inventory inv ON i.ItemID = inv.ItemID
+        WHERE inv.Quantity > 0
+        """
+        return self.fetch_data(query)
+
+    def get_items_without_location(self):
+        """Fetch items currently in inventory but without an assigned location."""
+        query = """
+        SELECT 
+            i.ItemID AS itemid, 
+            i.ItemNameEnglish AS itemnameenglish, 
+            i.Barcode AS barcode,
+            COALESCE(inv.Quantity, 0) AS currentquantity
+        FROM Item i
+        JOIN Inventory inv ON i.ItemID = inv.ItemID
+        WHERE inv.StorageLocation IS NULL OR inv.StorageLocation = ''
         """
         return self.fetch_data(query)
 
     def update_item_location_specific(self, item_id, expiration_date, new_location):
-        """Update an item's storage location for a specific expiration date."""
+        """Updates the store location for a specific item with a specific expiration date."""
         query = """
         UPDATE Inventory
         SET StorageLocation = %s
@@ -80,16 +94,19 @@ class ReceiveHandler(DatabaseManager):
         """
         self.execute_command(query, (new_location, item_id, expiration_date))
 
-### ✅ **How to Properly Add New Methods:**
-When adding new methods to a Python class (like `ReceiveHandler`):
-
-1. **Define the method clearly** within your class using the syntax:
-    ```python
-    def method_name(self, parameter1, parameter2):
-        # method logic
-    ```
-2. **Ensure correct indentation**: All methods must be indented consistently within the class.
-3. **Save the file** after adding the new methods.
-
-### 🚩 **Final Note:**
-Make sure to update your database queries and ensure that your database structure matches the query logic in these new methods. Specifically, verify the existence of columns (`StorageLocation`, `ExpirationDate`, etc.) in your `Inventory` table.
+    def get_items_with_locations_and_expirations(self):
+        """Fetch items with their storage locations and expiration dates, grouped properly."""
+        query = """
+        SELECT 
+            i.ItemID AS itemid,
+            i.ItemNameEnglish AS itemnameenglish,
+            i.Barcode AS barcode,
+            inv.StorageLocation AS storelocation,
+            inv.ExpirationDate AS expirationdate,
+            SUM(inv.Quantity) AS currentquantity
+        FROM Item i
+        JOIN Inventory inv ON i.ItemID = inv.ItemID
+        GROUP BY i.ItemID, i.ItemNameEnglish, i.Barcode, inv.StorageLocation, inv.ExpirationDate
+        HAVING SUM(inv.Quantity) > 0
+        """
+        return self.fetch_data(query)
