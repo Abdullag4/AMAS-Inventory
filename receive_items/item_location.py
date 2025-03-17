@@ -58,10 +58,10 @@ def item_location_tab():
 
     item_expirations_df = existing_location_df[existing_location_df["itemid"] == selected_item_id].copy()
 
-    # ✅ Ensure ExpirationDate is datetime
+    # ✅ Ensure ExpirationDate is datetime & format as YYYY-MM-DD (removes time)
     item_expirations_df["expirationdate"] = pd.to_datetime(
         item_expirations_df["expirationdate"], errors='coerce'
-    )
+    ).dt.strftime('%Y-%m-%d')
 
     # ✅ Display current locations and expiration dates clearly
     st.write(f"**Current locations for '{selected_item_name}':**")
@@ -75,7 +75,7 @@ def item_location_tab():
         use_container_width=True
     )
 
-    expiration_dates = item_expirations_df["expirationdate"].dt.strftime('%Y-%m-%d').unique().tolist()
+    expiration_dates = item_expirations_df["expirationdate"].unique().tolist()
     selected_expirations = st.multiselect("Select expiration dates to update", expiration_dates)
 
     new_location = st.text_input("Enter new store location:", value="")
