@@ -55,52 +55,38 @@ class ReceiveHandler(DatabaseManager):
         """
         self.execute_command(query, (received_quantity, poid, item_id))
 
-    # ✅ NEW: Fetch items with their store locations
-    def get_items_with_locations(self):
-        """Fetch all items along with their store locations."""
+    def get_items_with_locations_and_expirations(self):
+        """Fetch items along with their current inventory locations and expiration dates."""
         query = """
         SELECT 
-            i.ItemID AS itemid, 
-            i.ItemNameEnglish AS itemnameenglish, 
-            i.Barcode AS barcode,
-            COALESCE(SUM(inv.Quantity), 0) AS currentquantity,
-            COALESCE(inv.StorageLocation, 'Not Assigned') AS storelocation
+            i.ItemID as itemid,
+            i.ItemNameEnglish as itemnameenglish,
+            i.Barcode as barcode,
+            inv.StorageLocation as storelocation,
+            inv.ExpirationDate as expirationdate,
+            COALESCE(SUM(inv.Quantity), 0) as currentquantity
         FROM Item i
         LEFT JOIN Inventory inv ON i.ItemID = inv.ItemID
-        GROUP BY i.ItemID, i.ItemNameEnglish, i.Barcode, inv.StorageLocation
+        GROUP BY i.ItemID, i.ItemNameEnglish, i.Barcode, inv.StorageLocation, inv.ExpirationDate
+        ORDER BY i.ItemNameEnglish, inv.ExpirationDate
         """
         return self.fetch_data(query)
 
-    # ✅ NEW: Update store location for an item
+    def update_item_location_specific(self, item_id, expiration_date, new_location):
+        """Update storage location for an item with a specific expiration date."""
+        query = """
+        UPDATE Inventory
+        SET StorageLocation = %s
+        WHERE ItemID = %s AND ExpirationDate = %s
+        """
+        self.execute_command(query, (new_location, item_id, expiration_date))
+
+    # Existing method retained (useful for assigning bulk locations)
     def update_item_location(self, item_id, new_location):
-        """Updates the store location for a specific item."""
+        """Update item location across all inventory records."""
         query = """
         UPDATE Inventory
         SET StorageLocation = %s
         WHERE ItemID = %s
         """
         self.execute_command(query, (new_location, item_id))
-        
-        def get_items_with_locations_and_expirations(self):
-            query = """
-            SELECT 
-            i.ItemID as itemid,
-            i.ItemNameEnglish as itemnameenglish,
-            i.Barcode as barcode,
-            inv.StorageLocation as storelocation,
-            inv.ExpirationDate as expirationdate,
-            SUM(inv.Quantity) as currentquantity
-            FROM Item i
-            JOIN Inventory inv ON i.ItemID = inv.ItemID
-            GROUP BY i.ItemID, i.ItemNameEnglish, i.Barcode, inv.StorageLocation, inv.ExpirationDate
-            ORDER BY i.ItemNameEnglish, inv.ExpirationDate
-            """
-            return self.fetch_data(query)
-            
-            def update_item_location_specific(self, item_id, expiration_date, new_location):
-                query = """
-                UPDATE Inventory
-                SET StorageLocation = %s
-                WHERE ItemID = %s AND ExpirationDate = %s
-                """
-                self.execute_command(query, (new_location, item_id, expiration_date))
