@@ -55,13 +55,19 @@ class ReceiveHandler(DatabaseManager):
         """
         self.execute_command(query, (received_quantity, poid, item_id))
 
-    # ✅ NEW: Fetch items with their locations
+    # ✅ NEW: Fetch items with their store locations
     def get_items_with_locations(self):
         """Fetch all items along with their store locations."""
         query = """
-        SELECT i.ItemID, i.ItemNameEnglish, COALESCE(inv.StorageLocation, 'Not Assigned') AS StorageLocation
+        SELECT 
+            i.ItemID AS itemid, 
+            i.ItemNameEnglish AS itemnameenglish, 
+            i.Barcode AS barcode,
+            COALESCE(SUM(inv.Quantity), 0) AS currentquantity,
+            COALESCE(inv.StorageLocation, 'Not Assigned') AS storelocation
         FROM Item i
         LEFT JOIN Inventory inv ON i.ItemID = inv.ItemID
+        GROUP BY i.ItemID, i.ItemNameEnglish, i.Barcode, inv.StorageLocation
         """
         return self.fetch_data(query)
 
