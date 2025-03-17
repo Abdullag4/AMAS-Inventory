@@ -1,7 +1,7 @@
 import streamlit as st
 from receive_items.receive_items import receive_items
 from receive_items.received_po import received_po_tab
-from item_location.py import item_location.py
+from item_location import item_location
 
 def main_receive_page():
     st.title("📦 Receive Items Management")
