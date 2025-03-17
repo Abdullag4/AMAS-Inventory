@@ -56,23 +56,47 @@ class ReceiveHandler(DatabaseManager):
         self.execute_command(query, (received_quantity, poid, item_id))
 
     def get_items_with_locations_and_expirations(self):
-        """Fetch all items along with their store locations and expiration dates."""
+        """Fetch items with their storage locations and expiration dates, grouped properly."""
+        query = """
+        SELECT 
+            i.ItemID AS itemid,
+            i.ItemNameEnglish AS itemnameenglish,
+            i.Barcode AS barcode,
+            inv.StorageLocation AS storelocation,
+            inv.ExpirationDate AS expirationdate,
+            SUM(inv.Quantity) AS currentquantity
+        FROM Item i
+        JOIN Inventory inv ON i.ItemID = inv.ItemID
+        GROUP BY i.ItemID, i.ItemNameEnglish, i.Barcode, inv.StorageLocation, inv.ExpirationDate
+        HAVING SUM(inv.Quantity) > 0
+        """
+        return self.fetch_data(query)
+
+    def get_items_without_location(self):
+        """Fetch items currently in inventory but without an assigned location."""
         query = """
         SELECT 
             i.ItemID AS itemid, 
             i.ItemNameEnglish AS itemnameenglish, 
             i.Barcode AS barcode,
-            COALESCE(SUM(inv.Quantity), 0) AS currentquantity,
-            COALESCE(inv.StorageLocation, '') AS storelocation,
-            inv.ExpirationDate AS expirationdate
+            COALESCE(inv.Quantity, 0) AS currentquantity
         FROM Item i
-        LEFT JOIN Inventory inv ON i.ItemID = inv.ItemID
-        GROUP BY i.ItemID, i.ItemNameEnglish, i.Barcode, inv.StorageLocation, inv.ExpirationDate
+        JOIN Inventory inv ON i.ItemID = inv.ItemID
+        WHERE inv.StorageLocation IS NULL OR inv.StorageLocation = ''
         """
         return self.fetch_data(query)
 
-    def update_item_location(self, item_id, expiration_date, new_location):
-        """Updates the store location for a specific item and expiration date."""
+    def update_item_location(self, item_id, new_location):
+        """Updates the store location for an item (without considering expiration date)."""
+        query = """
+        UPDATE Inventory
+        SET StorageLocation = %s
+        WHERE ItemID = %s AND (StorageLocation IS NULL OR StorageLocation = '')
+        """
+        self.execute_command(query, (new_location, item_id))
+
+    def update_item_location_specific(self, item_id, expiration_date, new_location):
+        """Updates the store location for a specific item with a specific expiration date."""
         query = """
         UPDATE Inventory
         SET StorageLocation = %s
