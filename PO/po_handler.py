@@ -8,9 +8,10 @@ class POHandler(DatabaseManager):
         query = """
         SELECT 
             po.POID, po.OrderDate, po.ExpectedDelivery, po.Status, po.RespondedAt, po.ActualDelivery,
-            po.CreatedBy, s.SupplierName, 
+            po.CreatedBy, po.SupplierNote, s.SupplierName, 
             poi.ItemID, i.ItemNameEnglish, poi.OrderedQuantity, poi.EstimatedPrice,
-            poi.ReceivedQuantity, i.ItemPicture
+            poi.ReceivedQuantity, i.ItemPicture,
+            poi.SupProposedQuantity, poi.SupProposedPrice, poi.SupProposedDelivery, poi.SupItemNote, poi.ProposalStatus
         FROM PurchaseOrders po
         JOIN Supplier s ON po.SupplierID = s.SupplierID
         JOIN PurchaseOrderItems poi ON po.POID = poi.POID
@@ -23,10 +24,11 @@ class POHandler(DatabaseManager):
     def get_archived_purchase_orders(self):
         query = """
         SELECT 
-            po.POID, po.OrderDate, po.ExpectedDelivery, po.Status, po.RespondedAt, po.ActualDelivery, po.CreatedBy,
+            po.POID, po.OrderDate, po.ExpectedDelivery, po.Status, po.RespondedAt, po.ActualDelivery, po.CreatedBy, po.SupplierNote,
             s.SupplierName, 
             poi.ItemID, i.ItemNameEnglish, poi.OrderedQuantity, poi.EstimatedPrice,
-            poi.ReceivedQuantity, i.ItemPicture
+            poi.ReceivedQuantity, i.ItemPicture,
+            poi.SupProposedQuantity, poi.SupProposedPrice, poi.SupProposedDelivery, poi.SupItemNote, poi.ProposalStatus
         FROM PurchaseOrders po
         JOIN Supplier s ON po.SupplierID = s.SupplierID
         JOIN PurchaseOrderItems poi ON po.POID = poi.POID
@@ -67,8 +69,8 @@ class POHandler(DatabaseManager):
         po_id = po_id_result[0]
 
         query_poi = """
-        INSERT INTO PurchaseOrderItems (POID, ItemID, OrderedQuantity, EstimatedPrice, ReceivedQuantity)
-        VALUES (%s, %s, %s, %s, %s)
+        INSERT INTO PurchaseOrderItems (POID, ItemID, OrderedQuantity, EstimatedPrice, ReceivedQuantity, ProposalStatus)
+        VALUES (%s, %s, %s, %s, %s, 'Pending')
         """
         for item in items:
             estimated_price = item.get("estimated_price", None)
@@ -91,3 +93,11 @@ class POHandler(DatabaseManager):
         WHERE POID = %s AND ItemID = %s
         """
         self.execute_command(query, (received_quantity, poid, item_id))
+
+    def update_proposal_status(self, poid, item_id, status):
+        query = """
+        UPDATE PurchaseOrderItems
+        SET ProposalStatus = %s
+        WHERE POID = %s AND ItemID = %s
+        """
+        self.execute_command(query, (status, poid, item_id))
