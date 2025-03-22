@@ -39,9 +39,6 @@ class POHandler(DatabaseManager):
         """
         return self.fetch_data(query)
 
-    # --------------------------------
-    # ADDED: get_items method
-    # --------------------------------
     def get_items(self):
         """Fetch basic item info for manual PO creation."""
         query = """
@@ -114,19 +111,19 @@ class POHandler(DatabaseManager):
 
     def accept_proposed_po(self, proposed_po_id):
         """Accept a proposed PO, create a new normal PO from the proposed data, mark original as Accepted."""
-    # Ensure proposed_po_id is a Python int, not numpy.int64
-    proposed_po_id = int(proposed_po_id)
-    po_info = self.fetch_data(
-        "SELECT * FROM PurchaseOrders WHERE POID = %s",
-        (proposed_po_id,)
-    ).iloc[0]
+        # IMPORTANT: Convert to int to avoid "can't adapt type 'numpy.int64'"
+        proposed_po_id = int(proposed_po_id)
 
-    items_info = self.fetch_data(
-        "SELECT * FROM PurchaseOrderItems WHERE POID = %s",
-        (proposed_po_id,)
-    )
+        # 1) fetch existing PO info
+        po_info = self.fetch_data(
+            "SELECT * FROM PurchaseOrders WHERE POID = %s", (proposed_po_id,)
+        ).iloc[0]
+        # 2) fetch items
+        items_info = self.fetch_data(
+            "SELECT * FROM PurchaseOrderItems WHERE POID = %s", (proposed_po_id,)
+        )
 
-        # Create new normal PO from proposed fields
+        # 3) create new normal PO from proposed fields
         new_poid = self.create_manual_po(
             po_info['supplierid'],
             po_info['supproposeddeliver'],  # Proposed date
@@ -142,7 +139,7 @@ class POHandler(DatabaseManager):
             original_poid=proposed_po_id
         )
 
-        # Mark original PO as Accepted
+        # 4) mark original PO as Accepted
         self.execute_command(
             "UPDATE PurchaseOrders SET ProposedStatus = 'Accepted' WHERE POID = %s",
             (proposed_po_id,)
@@ -151,6 +148,8 @@ class POHandler(DatabaseManager):
 
     def decline_proposed_po(self, proposed_po_id):
         """Decline a proposed PO, set ProposedStatus = 'Declined'."""
+        # Convert to int just in case
+        proposed_po_id = int(proposed_po_id)
         self.execute_command(
             "UPDATE PurchaseOrders SET ProposedStatus = 'Declined' WHERE POID = %s",
             (proposed_po_id,)
