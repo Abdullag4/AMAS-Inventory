@@ -6,81 +6,62 @@ import pandas as pd
 po_handler = POHandler()
 
 def track_po_tab():
-    """Tab for tracking purchase orders."""
     st.header("🚚 Track Purchase Orders")
 
     tabs = st.tabs(["📋 Active Orders", "📌 Proposed Adjustments"])
-    
-    # Active Orders Tab
+
     with tabs[0]:
         po_details = po_handler.get_all_purchase_orders()
-        if po_details.empty:
-            st.info("ℹ️ No purchase orders found.")
-        else:
-            display_order_details(po_details)
 
-    # Proposed Adjustments Tab
+        active_po_df = po_details[po_details["proposedstatus"] != "Proposed"]
+        if active_po_df.empty:
+            st.info("ℹ️ No active purchase orders found.")
+        else:
+            summary_df = active_po_df[["poid", "suppliername", "status", "expecteddelivery"]].drop_duplicates()
+            summary_df.columns = ["PO ID", "Supplier", "Status", "Expected Delivery"]
+            st.subheader("📋 **Active Purchase Orders Summary**")
+            st.dataframe(summary_df, hide_index=True, use_container_width=True)
+
     with tabs[1]:
-        proposed_orders = po_handler.get_proposed_pos()
-        if proposed_orders.empty:
-            st.info("ℹ️ No proposed adjustments from suppliers.")
+        proposed_po_df = po_details[po_details["proposedstatus"] == "Proposed"]
+        if proposed_po_df.empty:
+            st.success("✅ No supplier proposals awaiting review.")
         else:
-            handle_proposed_orders(proposed_orders)
+            st.subheader("📌 **Supplier Proposed Adjustments**")
+            for poid in proposed_po_df["poid"].unique():
+                po_data = proposed_po_df[proposed_po_df["poid"] == poid]
+                po_info = po_data.iloc[0]
 
-def display_order_details(po_details):
-    summary_df = po_details[["poid", "suppliername", "status", "expecteddelivery"]].drop_duplicates()
-    summary_df.columns = ["PO ID", "Supplier", "Status", "Expected Delivery"]
-    st.dataframe(summary_df, use_container_width=True, hide_index=True)
+                st.markdown(f"## 📝 PO #{poid} from {po_info['suppliername']}")
+                st.markdown(f"**Supplier Note:** {po_info['suppliernote']}")
+                st.markdown(f"**Original Delivery:** {po_info['expecteddelivery'].date()} → **Proposed Delivery:** {po_info['supproposeddeliver'].date()}")
 
-    selected_poid = st.selectbox(
-        "🔽 Select a Purchase Order to view details",
-        options=summary_df["PO ID"].tolist()
-    )
+                cols = st.columns([3,2,2,2,2])
+                headers = ["Item", "Orig Qty", "Prop Qty", "Orig Price", "Prop Price"]
+                for col, header in zip(cols, headers):
+                    col.write(f"**{header}**")
 
-    details = po_details[po_details["poid"] == selected_poid]
-    order_info = details.iloc[0]
+                for _, row in po_data.iterrows():
+                    cols = st.columns([3,2,2,2,2])
+                    cols[0].write(row["itemnameenglish"])
+                    cols[1].write(row["orderedquantity"])
+                    cols[2].write(row["supproposedquantity"])
+                    cols[3].write(f"${row['estimatedprice']:.2f}")
+                    cols[4].write(f"${row['supproposedprice']:.2f}")
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("🗓️ Order Date", order_info['orderdate'].strftime("%Y-%m-%d"))
-    col2.metric("📅 Expected Delivery", order_info['expecteddelivery'].strftime("%Y-%m-%d"))
-    col3.metric("🚦 Status", order_info['status'])
+                col_accept, col_modify, col_decline = st.columns(3)
 
-    st.write("#### 📌 **Items:**")
-    for idx, item in details.iterrows():
-        cols = st.columns([1, 4, 2, 2, 2])
-        if item['itempicture']:
-            cols[0].image(BytesIO(item['itempicture']), width=60)
-        cols[1].write(f"**{item['itemnameenglish']}**")
-        cols[2].write(f"Ordered: {item['orderedquantity']}")
-        cols[3].write(f"Received: {item['receivedquantity']}")
-        cols[4].write(f"Price: ${item['estimatedprice']:.2f}" if item['estimatedprice'] else "Price: N/A")
+                if col_accept.button(f"✅ Accept Proposal #{poid}", key=f"accept_{poid}"):
+                    new_poid = po_handler.accept_proposed_po(poid)
+                    st.success(f"Proposal accepted. New PO #{new_poid} created.")
+                    st.rerun()
 
-    if order_info['status'] != 'Received':
-        if st.button("📦 Mark as Delivered & Received"):
-            po_handler.update_po_status_to_received(selected_poid)
-            st.success(f"✅ Order #{selected_poid} marked as Delivered & Received.")
-            st.rerun()
-    else:
-        st.success("✅ Order already received.")
+                if col_decline.button(f"❌ Decline Proposal #{poid}", key=f"decline_{poid}"):
+                    po_handler.decline_proposed_po(poid)
+                    st.warning(f"Proposal #{poid} declined.")
+                    st.rerun()
 
-def handle_proposed_orders(proposed_orders):
-    for _, order in proposed_orders.iterrows():
-        with st.expander(f"🔔 Proposed Adjustment – PO #{order['poid']} ({order['suppliername']})"):
-            st.write(f"**Supplier Note:** {order['suppliernote']}")
-            
-            col1, col2 = st.columns(2)
-            col1.metric("📅 Original Delivery", order['expecteddelivery'].strftime("%Y-%m-%d"))
-            col2.metric("🆕 Proposed Delivery", order['supproposeddeliver'].strftime("%Y-%m-%d"))
+                if col_modify.button(f"✏️ Modify Proposal #{poid}", key=f"modify_{poid}"):
+                    st.info("Modify functionality coming soon!")
 
-            action_cols = st.columns(3)
-            if action_cols[0].button(f"✅ Accept Proposal #{order['poid']}", key=f"accept_{order['poid']}"):
-                po_handler.accept_proposed_po(order['poid'])
-                st.success(f"✅ Proposal accepted and new PO created.")
-                st.rerun()
-
-            if action_cols[1].button(f"❌ Decline Proposal #{order['poid']}", key=f"decline_{order['poid']}"):
-                po_handler.decline_proposed_po(order['poid'])
-                st.warning("❌ Proposal declined.")
-                st.rerun()
-
-            action_cols[2].info("📝 To modify, edit manually as a new PO.")
+                st.markdown("---")
