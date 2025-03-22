@@ -8,10 +8,11 @@ class POHandler(DatabaseManager):
         query = """
         SELECT 
             po.POID, po.OrderDate, po.ExpectedDelivery, po.Status, po.RespondedAt, po.ActualDelivery,
-            po.CreatedBy, po.SupplierNote, s.SupplierName, 
+            po.CreatedBy, po.SupProposedDeliver, po.ProposedStatus, po.OriginalPOID, po.SupplierNote,
+            s.SupplierName, 
             poi.ItemID, i.ItemNameEnglish, poi.OrderedQuantity, poi.EstimatedPrice,
-            poi.ReceivedQuantity, i.ItemPicture,
-            poi.SupProposedQuantity, poi.SupProposedPrice, poi.SupProposedDelivery, poi.SupItemNote, poi.ProposalStatus
+            poi.SupProposedQuantity, poi.SupProposedPrice,
+            poi.ReceivedQuantity, i.ItemPicture
         FROM PurchaseOrders po
         JOIN Supplier s ON po.SupplierID = s.SupplierID
         JOIN PurchaseOrderItems poi ON po.POID = poi.POID
@@ -21,62 +22,44 @@ class POHandler(DatabaseManager):
         """
         return self.fetch_data(query)
 
-    def get_archived_purchase_orders(self):
+    def get_proposed_pos(self):
         query = """
-        SELECT 
-            po.POID, po.OrderDate, po.ExpectedDelivery, po.Status, po.RespondedAt, po.ActualDelivery, po.CreatedBy, po.SupplierNote,
-            s.SupplierName, 
-            poi.ItemID, i.ItemNameEnglish, poi.OrderedQuantity, poi.EstimatedPrice,
-            poi.ReceivedQuantity, i.ItemPicture,
-            poi.SupProposedQuantity, poi.SupProposedPrice, poi.SupProposedDelivery, poi.SupItemNote, poi.ProposalStatus
+        SELECT DISTINCT
+            po.POID, po.OrderDate, po.ExpectedDelivery, po.SupProposedDeliver, po.SupplierNote,
+            po.ProposedStatus, po.OriginalPOID, po.CreatedBy, s.SupplierName
         FROM PurchaseOrders po
         JOIN Supplier s ON po.SupplierID = s.SupplierID
-        JOIN PurchaseOrderItems poi ON po.POID = poi.POID
-        JOIN Item i ON poi.ItemID = i.ItemID
-        WHERE po.Status IN ('Completed', 'Declined')
+        WHERE po.ProposedStatus = 'Proposed'
         ORDER BY po.OrderDate DESC
         """
         return self.fetch_data(query)
 
-    def get_suppliers(self):
-        query = "SELECT SupplierID, SupplierName FROM Supplier"
-        return self.fetch_data(query)
-
-    def get_items(self):
-        query = """
-        SELECT ItemID, ItemNameEnglish, ItemPicture, AverageRequired
-        FROM Item
-        """
-        return self.fetch_data(query)
-
-    def get_item_supplier_mapping(self):
-        query = "SELECT ItemID, SupplierID FROM ItemSupplier"
-        return self.fetch_data(query)
-
-    def create_manual_po(self, supplier_id, expected_delivery, items, created_by):
-        """Creates a manual purchase order and links selected items to it, recording creator."""
-        
+    def accept_proposed_po(self, proposed_po_id):
         query_po = """
-        INSERT INTO PurchaseOrders (SupplierID, ExpectedDelivery, CreatedBy)
-        VALUES (%s, %s, %s)
+        INSERT INTO PurchaseOrders (SupplierID, ExpectedDelivery, Status, OriginalPOID, CreatedBy)
+        SELECT SupplierID, SupProposedDeliver, 'Pending', POID, CreatedBy
+        FROM PurchaseOrders WHERE POID = %s
         RETURNING POID
         """
-        po_id_result = self.execute_command_returning(query_po, (supplier_id, expected_delivery, created_by))
-        
-        if not po_id_result:
-            return None
-        
-        po_id = po_id_result[0]
+        new_po_id = self.execute_command_returning(query_po, (proposed_po_id,))[0]
 
-        query_poi = """
-        INSERT INTO PurchaseOrderItems (POID, ItemID, OrderedQuantity, EstimatedPrice, ReceivedQuantity, ProposalStatus)
-        VALUES (%s, %s, %s, %s, %s, 'Pending')
+        query_items = """
+        INSERT INTO PurchaseOrderItems (POID, ItemID, OrderedQuantity, EstimatedPrice, ReceivedQuantity)
+        SELECT %s, ItemID, SupProposedQuantity, SupProposedPrice, 0
+        FROM PurchaseOrderItems WHERE POID = %s
         """
-        for item in items:
-            estimated_price = item.get("estimated_price", None)
-            self.execute_command(query_poi, (po_id, item["item_id"], item["quantity"], estimated_price, 0))
+        self.execute_command(query_items, (new_po_id, proposed_po_id))
 
-        return po_id
+        query_update_status = """
+        UPDATE PurchaseOrders SET ProposedStatus = 'Accepted' WHERE POID = %s
+        """
+        self.execute_command(query_update_status, (proposed_po_id,))
+
+    def decline_proposed_po(self, proposed_po_id):
+        query = """
+        UPDATE PurchaseOrders SET ProposedStatus = 'Declined' WHERE POID = %s
+        """
+        self.execute_command(query, (proposed_po_id,))
 
     def update_po_status_to_received(self, poid):
         query = """
@@ -93,11 +76,3 @@ class POHandler(DatabaseManager):
         WHERE POID = %s AND ItemID = %s
         """
         self.execute_command(query, (received_quantity, poid, item_id))
-
-    def update_proposal_status(self, poid, item_id, status):
-        query = """
-        UPDATE PurchaseOrderItems
-        SET ProposalStatus = %s
-        WHERE POID = %s AND ItemID = %s
-        """
-        self.execute_command(query, (status, poid, item_id))
