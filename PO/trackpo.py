@@ -1,3 +1,5 @@
+# Fully updated trackpo.py
+
 import streamlit as st
 from PO.po_handler import POHandler
 from io import BytesIO
@@ -14,14 +16,18 @@ def track_po_tab():
         st.info("ℹ️ No purchase orders found.")
         return
 
-    summary_df = po_details[["poid", "suppliername", "status", "expecteddelivery"]].drop_duplicates().reset_index(drop=True)
-    summary_df.columns = ["PO ID", "Supplier", "Status", "Expected Delivery"]
+    summary_cols = ["poid", "suppliername", "status", "expecteddelivery", "proposedstatus"]
+    summary_df = po_details[summary_cols].drop_duplicates().reset_index(drop=True)
+    summary_df.columns = ["PO ID", "Supplier", "Status", "Expected Delivery", "Proposed Status"]
 
     st.subheader("📋 **Purchase Orders Summary**")
     st.dataframe(summary_df, use_container_width=True, hide_index=True)
 
     st.subheader("🔍 **Detailed Order Information**")
-    selected_poid = st.selectbox("🔽 Select a Purchase Order", options=summary_df["PO ID"].tolist())
+    selected_poid = st.selectbox(
+        "🔽 Select a Purchase Order to view details",
+        options=summary_df["PO ID"].tolist()
+    )
 
     selected_order_details = po_details[po_details["poid"] == selected_poid]
 
@@ -37,14 +43,19 @@ def track_po_tab():
     col2.metric("📅 Expected Delivery", order_info['expecteddelivery'].strftime("%Y-%m-%d"))
     col3.metric("🚦 Status", order_info['status'])
 
-    if order_info['status'] == 'Declined' and pd.notnull(order_info['suppliernote']):
-        st.error(f"Supplier Decline Reason: {order_info['suppliernote']}")
+    if pd.notnull(order_info['respondedat']):
+        st.write(f"**Supplier Response Time:** {order_info['respondedat'].strftime('%Y-%m-%d %H:%M:%S')}")
+
+    if order_info['proposedstatus'] == 'Proposed':
+        st.warning("⚠️ Supplier proposed changes!")
+        st.write(f"**Proposed Delivery Date:** {order_info['supproposeddeliver'].strftime('%Y-%m-%d')}")
+        st.write(f"**Supplier Note:** {order_info['suppliernote']}")
 
     st.write("---")
 
     st.write("#### 📌 **Items in this Order:**")
-    for idx, item in selected_order_details.iterrows():
-        cols = st.columns([1, 3, 2, 2, 2, 3])
+    for _, item in selected_order_details.iterrows():
+        cols = st.columns([1, 4, 2, 2, 2, 2, 2])
 
         if item['itempicture']:
             image_data = BytesIO(item['itempicture'])
@@ -54,26 +65,13 @@ def track_po_tab():
 
         cols[1].write(f"**{item['itemnameenglish']}**")
         cols[2].write(f"Ordered: {item['orderedquantity']}")
+        cols[3].write(f"Received: {item['receivedquantity']}")
 
-        if item['proposalstatus'] != 'Pending':
-            cols[3].write(f"Supplier Proposed: {item['supproposedquantity']} units at ${item['supproposedprice']}")
-            cols[4].write(f"New Delivery: {item['supproposeddelivery'].strftime('%Y-%m-%d')}")
-            cols[5].write(f"Supplier Note: {item['supitemnote']}")
+        cols[4].write(f"Price: ${item['estimatedprice']:.2f}" if pd.notnull(item['estimatedprice']) else "Price: N/A")
 
-            decision = cols[5].selectbox(
-                "Decision", ["Pending", "Accepted", "Partially Accepted", "Declined"],
-                key=f"{item['itemid']}_decision"
-            )
-
-            if cols[5].button("Update Decision", key=f"{item['itemid']}_btn"):
-                po_handler.update_proposal_status(selected_poid, item['itemid'], decision)
-                st.success(f"✅ Proposal for '{item['itemnameenglish']}' updated to '{decision}'.")
-                st.rerun()
-
-        else:
-            cols[3].write("No proposal from supplier yet.")
-            cols[4].write("-")
-            cols[5].write("-")
+        if order_info['proposedstatus'] == 'Proposed':
+            cols[5].write(f"Prop. Qty: {item['supproposedquantity']}")
+            cols[6].write(f"Prop. Price: ${item['supproposedprice']:.2f}")
 
     if order_info['status'] != 'Received':
         st.write("---")
@@ -81,5 +79,15 @@ def track_po_tab():
             po_handler.update_po_status_to_received(selected_poid)
             st.success(f"✅ Order #{selected_poid} marked as Delivered & Received.")
             st.rerun()
-    else:
-        st.success("✅ Order already marked as Received.")
+
+    if order_info['proposedstatus'] == 'Proposed':
+        st.write("---")
+        if st.button("✅ Accept Proposal"):
+            po_handler.accept_proposed_po(selected_poid)
+            st.success("Proposal accepted and new PO created.")
+            st.rerun()
+
+        if st.button("❌ Decline Proposal"):
+            po_handler.decline_proposed_po(selected_poid)
+            st.warning("Proposal declined.")
+            st.rerun()
