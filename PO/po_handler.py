@@ -7,8 +7,9 @@ class POHandler(DatabaseManager):
     def get_all_purchase_orders(self):
         query = """
         SELECT 
-            po.POID, po.OrderDate, po.ExpectedDelivery, po.Status, po.RespondedAt, po.ActualDelivery,
-            po.CreatedBy, po.SupProposedDeliver, po.ProposedStatus, po.OriginalPOID, po.SupplierNote,
+            po.POID, po.OrderDate, po.ExpectedDelivery, po.Status, po.RespondedAt, 
+            po.ActualDelivery, po.CreatedBy, po.SupProposedDeliver, po.ProposedStatus, 
+            po.OriginalPOID, po.SupplierNote,
             s.SupplierName, 
             poi.ItemID, i.ItemNameEnglish, poi.OrderedQuantity, poi.EstimatedPrice,
             poi.ReceivedQuantity, poi.SupProposedQuantity, poi.SupProposedPrice, i.ItemPicture
@@ -24,7 +25,8 @@ class POHandler(DatabaseManager):
     def get_archived_purchase_orders(self):
         query = """
         SELECT 
-            po.POID, po.OrderDate, po.ExpectedDelivery, po.Status, po.RespondedAt, po.ActualDelivery, po.CreatedBy,
+            po.POID, po.OrderDate, po.ExpectedDelivery, po.Status, po.RespondedAt, 
+            po.ActualDelivery, po.CreatedBy,
             s.SupplierName, 
             poi.ItemID, i.ItemNameEnglish, poi.OrderedQuantity, poi.EstimatedPrice,
             poi.ReceivedQuantity, i.ItemPicture
@@ -37,6 +39,17 @@ class POHandler(DatabaseManager):
         """
         return self.fetch_data(query)
 
+    # --------------------------------
+    # ADDED: get_items method
+    # --------------------------------
+    def get_items(self):
+        """Fetch basic item info for manual PO creation."""
+        query = """
+        SELECT ItemID, ItemNameEnglish, ItemPicture, AverageRequired
+        FROM Item
+        """
+        return self.fetch_data(query)
+
     def create_manual_po(self, supplier_id, expected_delivery, items, created_by, original_poid=None):
         """Creates a manual PO, optionally linking it to an OriginalPOID (for acceptance of proposals)."""
         query_po = """
@@ -44,7 +57,9 @@ class POHandler(DatabaseManager):
         VALUES (%s, %s, %s, %s)
         RETURNING POID
         """
-        po_id_result = self.execute_command_returning(query_po, (supplier_id, expected_delivery, created_by, original_poid))
+        po_id_result = self.execute_command_returning(
+            query_po, (supplier_id, expected_delivery, created_by, original_poid)
+        )
         
         if not po_id_result:
             return None
@@ -52,8 +67,10 @@ class POHandler(DatabaseManager):
         po_id = po_id_result[0]
 
         query_poi = """
-        INSERT INTO PurchaseOrderItems (POID, ItemID, OrderedQuantity, EstimatedPrice, ReceivedQuantity)
-        VALUES (%s, %s, %s, %s, 0)
+        INSERT INTO PurchaseOrderItems 
+            (POID, ItemID, OrderedQuantity, EstimatedPrice, ReceivedQuantity)
+        VALUES 
+            (%s, %s, %s, %s, 0)
         """
         for item in items:
             self.execute_command(query_poi, (
@@ -81,7 +98,6 @@ class POHandler(DatabaseManager):
         """
         self.execute_command(query, (received_quantity, poid, item_id))
 
-    # --- NEW/RE-ADDED: for autopo.py logic ---
     def get_item_supplier_mapping(self):
         """Fetches item-supplier relationships to filter items per supplier (autopo usage)."""
         query = "SELECT ItemID, SupplierID FROM ItemSupplier"
@@ -98,12 +114,14 @@ class POHandler(DatabaseManager):
 
     def accept_proposed_po(self, proposed_po_id):
         """Accept a proposed PO, create a new normal PO from the proposed data, mark original as Accepted."""
-        # 1) fetch existing PO info
-        po_info = self.fetch_data("SELECT * FROM PurchaseOrders WHERE POID = %s", (proposed_po_id,)).iloc[0]
-        # 2) fetch items
-        items_info = self.fetch_data("SELECT * FROM PurchaseOrderItems WHERE POID = %s", (proposed_po_id,))
+        po_info = self.fetch_data(
+            "SELECT * FROM PurchaseOrders WHERE POID = %s", (proposed_po_id,)
+        ).iloc[0]
+        items_info = self.fetch_data(
+            "SELECT * FROM PurchaseOrderItems WHERE POID = %s", (proposed_po_id,)
+        )
 
-        # 3) create new normal PO from the proposed fields
+        # Create new normal PO from proposed fields
         new_poid = self.create_manual_po(
             po_info['supplierid'],
             po_info['supproposeddeliver'],  # Proposed date
@@ -112,13 +130,14 @@ class POHandler(DatabaseManager):
                     "item_id": item["itemid"],
                     "quantity": item["supproposedquantity"],
                     "estimated_price": item["supproposedprice"]
-                } for _, item in items_info.iterrows()
+                } 
+                for _, item in items_info.iterrows()
             ],
-            po_info['createdby'],
+            created_by=po_info['createdby'],
             original_poid=proposed_po_id
         )
 
-        # 4) mark original PO as Accepted
+        # Mark original PO as Accepted
         self.execute_command(
             "UPDATE PurchaseOrders SET ProposedStatus = 'Accepted' WHERE POID = %s",
             (proposed_po_id,)
