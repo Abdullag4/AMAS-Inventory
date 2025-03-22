@@ -114,12 +114,17 @@ class POHandler(DatabaseManager):
 
     def accept_proposed_po(self, proposed_po_id):
         """Accept a proposed PO, create a new normal PO from the proposed data, mark original as Accepted."""
-        po_info = self.fetch_data(
-            "SELECT * FROM PurchaseOrders WHERE POID = %s", (proposed_po_id,)
-        ).iloc[0]
-        items_info = self.fetch_data(
-            "SELECT * FROM PurchaseOrderItems WHERE POID = %s", (proposed_po_id,)
-        )
+    # Ensure proposed_po_id is a Python int, not numpy.int64
+    proposed_po_id = int(proposed_po_id)
+    po_info = self.fetch_data(
+        "SELECT * FROM PurchaseOrders WHERE POID = %s",
+        (proposed_po_id,)
+    ).iloc[0]
+
+    items_info = self.fetch_data(
+        "SELECT * FROM PurchaseOrderItems WHERE POID = %s",
+        (proposed_po_id,)
+    )
 
         # Create new normal PO from proposed fields
         new_poid = self.create_manual_po(
